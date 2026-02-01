@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>森の循環3D — Stage 1: 種 - 雪に眠る（Three.js版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+            background: #0f1a1a;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            z-index: 10;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        .overlay .main-title {
+            font-size: 1.6rem;
+            font-weight: 400;
+            color: rgba(240, 235, 220, 0.98);
+            letter-spacing: 0.25em;
+            text-shadow: 0 0 25px rgba(140, 170, 100, 0.5);
+            margin-bottom: 15px;
+        }
+
+        .overlay .main-title .title-en {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 300;
+            color: rgba(180, 190, 160, 0.65);
+            letter-spacing: 0.12em;
+            margin-top: 6px;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .overlay h2 {
+            font-size: 1.2rem;
+            font-weight: 300;
+            color: rgba(240, 235, 220, 0.9);
+            letter-spacing: 0.2em;
+            text-shadow: 0 0 20px rgba(140, 170, 100, 0.4);
+        }
+
+        .overlay h2 .title-en {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 300;
+            color: rgba(180, 190, 160, 0.7);
+            letter-spacing: 0.15em;
+            margin-top: 5px;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .overlay .subtitle {
+            font-size: 0.8rem;
+            color: rgba(150, 170, 140, 0.8);
+            margin-top: 8px;
+            letter-spacing: 0.15em;
+        }
+
+        .overlay .story {
+            font-size: 0.85rem;
+            color: rgba(200, 200, 180, 0.75);
+            margin-top: 15px;
+            line-height: 1.8;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .overlay .story .story-en {
+            display: block;
+            font-size: 0.75rem;
+            color: rgba(160, 170, 150, 0.6);
+            margin-top: 8px;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-style: italic;
+        }
+
+        .controls {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(15, 25, 25, 0.88);
+            border-radius: 16px;
+            padding: 25px;
+            width: 280px;
+            z-index: 100;
+            border: 1px solid rgba(100, 130, 100, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group h3 {
+            font-size: 0.65rem;
+            font-weight: 400;
+            color: rgba(150, 160, 200, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 12px;
+        }
+
+        .slider-container {
+            margin-bottom: 14px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .slider-label {
+            font-size: 0.8rem;
+            color: rgba(200, 210, 240, 0.9);
+        }
+
+        .slider-label-en {
+            font-size: 0.6rem;
+            color: rgba(120, 130, 170, 0.7);
+            display: block;
+        }
+
+        .slider-value {
+            font-size: 0.75rem;
+            color: rgba(160, 190, 130, 0.9);
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(60, 70, 100, 0.5);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #99bb66, #77aa55);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 10px rgba(140, 180, 100, 0.5);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 20px rgba(140, 180, 100, 0.8);
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-secondary {
+            background: rgba(60, 70, 100, 0.6);
+            color: rgba(200, 210, 240, 0.9);
+            border: 1px solid rgba(100, 120, 180, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(80, 90, 130, 0.7);
+            border-color: rgba(120, 150, 220, 0.5);
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .checkbox-container input {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: #88aa55;
+        }
+
+        .checkbox-container label {
+            font-size: 0.8rem;
+            color: rgba(200, 210, 240, 0.9);
+            cursor: pointer;
+        }
+
+        .checkbox-label-en {
+            font-size: 0.6rem;
+            color: rgba(120, 130, 170, 0.7);
+        }
+
+        .info-box {
+            background: rgba(40, 50, 80, 0.4);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.7rem;
+            color: rgba(150, 160, 200, 0.8);
+            line-height: 1.6;
+        }
+
+        .info-box strong {
+            color: rgba(180, 200, 255, 0.9);
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            color: rgba(150, 160, 200, 0.6);
+            z-index: 10;
+            letter-spacing: 0.1em;
+        }
+
+        footer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(100, 110, 150, 0.5);
+            font-size: 0.7rem;
+            z-index: 10;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                right: 10px;
+                top: auto;
+                bottom: 10px;
+                transform: none;
+                width: calc(100% - 20px);
+                max-height: 40vh;
+                overflow-y: auto;
+                padding: 15px;
+            }
+
+            .overlay {
+                padding: 15px;
+            }
+
+            .overlay h1 {
+                font-size: 1.1rem;
+            }
+
+            .overlay .story {
+                font-size: 0.75rem;
+            }
+
+            .hint {
+                bottom: auto;
+                top: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div class="overlay">
+        <h1 class="main-title">いわての森が育む、いのちの循環<span class="title-en">The Cycle of Life Nurtured by Iwate's Forests</span></h1>
+        <h2>Stage 1: 種 — 雪に眠る<span class="title-en">Seed — Sleeping in Snow</span></h2>
+        <p class="subtitle">森の循環3D — Forest Circulation 3D</p>
+        <p class="story">
+            いわての冬の夜空の下、雪に覆われた大地で、木々の種子が静かに未来を待つ。<br>
+            <span class="story-en">Under the winter night sky of Iwate, tree seeds wait quietly for the future, buried in snow-covered earth.</span>
+        </p>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <h3>形状 / Shape</h3>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">種子の数<span class="slider-label-en">Seed Count</span></span>
+                    <span class="slider-value" id="seedCountValue">800</span>
+                </div>
+                <input type="range" id="seedCount" min="100" max="2000" value="800">
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">雪の結晶<span class="slider-label-en">Snowflakes</span></span>
+                    <span class="slider-value" id="snowflakeCountValue">200</span>
+                </div>
+                <input type="range" id="snowflakeCount" min="50" max="500" value="200">
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">球体サイズ<span class="slider-label-en">Sphere Size</span></span>
+                    <span class="slider-value" id="sphereSizeValue">3</span>
+                </div>
+                <input type="range" id="sphereSize" min="1" max="5" step="0.1" value="3">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>アニメーション / Animation</h3>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">回転速度<span class="slider-label-en">Rotation</span></span>
+                    <span class="slider-value" id="rotationSpeedValue">0.3</span>
+                </div>
+                <input type="range" id="rotationSpeed" min="0" max="1" step="0.05" value="0.3">
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">呼吸の深さ<span class="slider-label-en">Breath</span></span>
+                    <span class="slider-value" id="breathDepthValue">0.2</span>
+                </div>
+                <input type="range" id="breathDepth" min="0" max="0.5" step="0.02" value="0.2">
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox" id="autoRotate" checked>
+                <label for="autoRotate">自動回転 <span class="checkbox-label-en">Auto Rotate</span></label>
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox" id="clockwise">
+                <label for="clockwise">時計回り <span class="checkbox-label-en">Clockwise</span></label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>ビジュアル / Visual</h3>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">粒子サイズ<span class="slider-label-en">Particle Size</span></span>
+                    <span class="slider-value" id="particleSizeValue">0.04</span>
+                </div>
+                <input type="range" id="particleSize" min="0.01" max="0.1" step="0.005" value="0.04">
+            </div>
+
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">発光強度<span class="slider-label-en">Glow</span></span>
+                    <span class="slider-value" id="glowValue">1.0</span>
+                </div>
+                <input type="range" id="glow" min="0.2" max="2" step="0.1" value="1.0">
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox" id="showConnections" checked>
+                <label for="showConnections">螺旋の接続線 <span class="checkbox-label-en">Connections</span></label>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-secondary" id="reset">リセット / Reset</button>
+            <button class="btn btn-secondary" id="downloadPNG">PNG保存 / Save</button>
+        </div>
+
+        <div class="info-box">
+            <strong>🌱 Three.js の特徴</strong><br>
+            • 本格的なWebGL 3Dレンダリング<br>
+            • マウスドラッグでカメラ操作<br>
+            • 数千個のパーティクル表示<br>
+            • AdditiveBlending（光の加算）
+        </div>
+    </div>
+
+    <p class="hint">マウスドラッグで視点を変更 / ホイールでズーム</p>
+
+    <footer>
+        © ima Design Lab｜松森木工所 — Iwate Forest Circulation Project — Three.js (MIT License)
+    </footer>
+
+    <!-- Three.js と OrbitControls を ES Module として読み込み -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ========================================
+        // グローバル変数
+        // ========================================
+        let scene, camera, renderer;
+        let controls;
+        let seedParticles, snowflakeParticles, connectionLines;
+        let coreGlow;
+        const clock = new THREE.Clock();
+
+        // パラメータ
+        let params = {
+            seedCount: 800,
+            snowflakeCount: 200,
+            sphereSize: 3,
+            rotationSpeed: 0.3,
+            breathDepth: 0.2,
+            autoRotate: true,
+            clockwise: false,  // 時計回り（デフォルトは反時計回り）
+            particleSize: 0.04,
+            glow: 1.0,
+            showConnections: true
+        };
+
+        // ========================================
+        // 初期化
+        // ========================================
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // シーン（緑青の背景）
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f1a1a);
+            scene.fog = new THREE.FogExp2(0x0f1a1a, 0.05);
+
+            // カメラ
+            camera = new THREE.PerspectiveCamera(
+                60,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                100
+            );
+            camera.position.set(0, 0, 8);
+
+            // レンダラー
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                preserveDrawingBuffer: true // PNG保存用
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // OrbitControls（カメラ操作）
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = params.autoRotate;
+            controls.autoRotateSpeed = params.rotationSpeed * 2;
+            controls.minDistance = 3;
+            controls.maxDistance = 15;
+
+            // オブジェクト生成
+            createSeedParticles();
+            createSnowflakeParticles();
+            createConnectionLines();
+            createCoreGlow();
+
+            // 環境光（緑青系）
+            const ambientLight = new THREE.AmbientLight(0x2a3a3a, 0.6);
+            scene.add(ambientLight);
+
+            // ポイントライト（黄緑系）
+            const pointLight = new THREE.PointLight(0x88aa66, 0.8, 20);
+            pointLight.position.set(0, 0, 0);
+            scene.add(pointLight);
+
+            // イベントリスナー
+            setupEventListeners();
+
+            // リサイズ対応
+            window.addEventListener('resize', onWindowResize);
+
+            // アニメーション開始
+            animate();
+        }
+
+        // ========================================
+        // フィボナッチ球面配置
+        // ========================================
+        function fibonacciSphere(n, radius) {
+            const points = [];
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+            for (let i = 0; i < n; i++) {
+                const theta = goldenAngle * i;
+                const phi = Math.acos(1 - 2 * (i + 0.5) / n);
+
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = radius * Math.sin(phi) * Math.sin(theta);
+                const z = radius * Math.cos(phi);
+
+                points.push(new THREE.Vector3(x, y, z));
+            }
+            return points;
+        }
+
+        // ========================================
+        // 種子パーティクル生成
+        // ========================================
+        function createSeedParticles() {
+            if (seedParticles) {
+                scene.remove(seedParticles);
+                seedParticles.geometry.dispose();
+                seedParticles.material.dispose();
+            }
+
+            const positions = fibonacciSphere(params.seedCount, params.sphereSize);
+            const geometry = new THREE.BufferGeometry();
+
+            const posArray = new Float32Array(positions.length * 3);
+            const colorArray = new Float32Array(positions.length * 3);
+
+            positions.forEach((pos, i) => {
+                posArray[i * 3] = pos.x;
+                posArray[i * 3 + 1] = pos.y;
+                posArray[i * 3 + 2] = pos.z;
+
+                // やや黄色がかった白（若干のバリエーション）
+                const hue = 0.12 + Math.random() * 0.08;  // 黄色〜黄緑
+                const sat = 0.15 + Math.random() * 0.2;
+                const light = 0.75 + Math.random() * 0.25;
+                const color = new THREE.Color().setHSL(hue, sat, light);
+                colorArray[i * 3] = color.r;
+                colorArray[i * 3 + 1] = color.g;
+                colorArray[i * 3 + 2] = color.b;
+            });
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: params.particleSize,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9 * params.glow,
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            seedParticles = new THREE.Points(geometry, material);
+            scene.add(seedParticles);
+        }
+
+        // ========================================
+        // 雪の結晶パーティクル生成
+        // ========================================
+        function createSnowflakeParticles() {
+            if (snowflakeParticles) {
+                scene.remove(snowflakeParticles);
+                snowflakeParticles.geometry.dispose();
+                snowflakeParticles.material.dispose();
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            const posArray = new Float32Array(params.snowflakeCount * 3);
+            const colorArray = new Float32Array(params.snowflakeCount * 3);
+
+            for (let i = 0; i < params.snowflakeCount; i++) {
+                // 球体の外側にランダム配置
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = params.sphereSize * (1.3 + Math.random() * 0.8);
+
+                posArray[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                posArray[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                posArray[i * 3 + 2] = r * Math.cos(phi);
+
+                // やや黄色がかった白〜淡い黄緑
+                const color = new THREE.Color().setHSL(0.15 + Math.random() * 0.1, 0.1 + Math.random() * 0.15, 0.8 + Math.random() * 0.2);
+                colorArray[i * 3] = color.r;
+                colorArray[i * 3 + 1] = color.g;
+                colorArray[i * 3 + 2] = color.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.06,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.5 * params.glow,
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            snowflakeParticles = new THREE.Points(geometry, material);
+            scene.add(snowflakeParticles);
+        }
+
+        // ========================================
+        // 螺旋接続線
+        // ========================================
+        function createConnectionLines() {
+            if (connectionLines) {
+                scene.remove(connectionLines);
+                connectionLines.geometry.dispose();
+                connectionLines.material.dispose();
+            }
+
+            if (!params.showConnections) return;
+
+            const positions = fibonacciSphere(Math.min(params.seedCount, 300), params.sphereSize);
+            const geometry = new THREE.BufferGeometry();
+
+            // 螺旋的に接続
+            const linePositions = [];
+            for (let i = 1; i < positions.length; i++) {
+                if (i % 5 === 0) { // 5個ごとに接続
+                    linePositions.push(
+                        positions[i - 1].x, positions[i - 1].y, positions[i - 1].z,
+                        positions[i].x, positions[i].y, positions[i].z
+                    );
+                }
+            }
+
+            geometry.setAttribute(
+                'position',
+                new THREE.Float32BufferAttribute(linePositions, 3)
+            );
+
+            const material = new THREE.LineBasicMaterial({
+                color: 0x88aa55,  // 黄緑のアクセント
+                transparent: true,
+                opacity: 0.25 * params.glow,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            connectionLines = new THREE.LineSegments(geometry, material);
+            scene.add(connectionLines);
+        }
+
+        // ========================================
+        // 中心の発光
+        // ========================================
+        function createCoreGlow() {
+            if (coreGlow) {
+                scene.remove(coreGlow);
+                coreGlow.geometry.dispose();
+                coreGlow.material.dispose();
+            }
+
+            const geometry = new THREE.SphereGeometry(0.3, 32, 32);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x99bb66,  // 黄緑のアクセント
+                transparent: true,
+                opacity: 0.1 * params.glow,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            coreGlow = new THREE.Mesh(geometry, material);
+            scene.add(coreGlow);
+        }
+
+        // ========================================
+        // アニメーション
+        // ========================================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            // 呼吸アニメーション
+            const breathScale = 1 + Math.sin(elapsedTime * 0.5) * params.breathDepth;
+
+            if (seedParticles) {
+                seedParticles.scale.set(breathScale, breathScale, breathScale);
+            }
+
+            if (snowflakeParticles) {
+                // 雪の結晶は逆位相で動く
+                const snowBreath = 1 + Math.sin(elapsedTime * 0.3 + Math.PI) * params.breathDepth * 0.5;
+                snowflakeParticles.scale.set(snowBreath, snowBreath, snowBreath);
+                snowflakeParticles.rotation.y += 0.0005;
+            }
+
+            if (connectionLines) {
+                connectionLines.scale.set(breathScale, breathScale, breathScale);
+            }
+
+            if (coreGlow) {
+                const coreBreath = 1 + Math.sin(elapsedTime * 0.8) * 0.3;
+                coreGlow.scale.set(coreBreath, coreBreath, coreBreath);
+            }
+
+            // コントロール更新
+            controls.autoRotate = params.autoRotate;
+            // 時計回りなら負の値、反時計回りなら正の値
+            const direction = params.clockwise ? -1 : 1;
+            controls.autoRotateSpeed = params.rotationSpeed * 2 * direction;
+            controls.update();
+
+            // レンダリング
+            renderer.render(scene, camera);
+        }
+
+        // ========================================
+        // リサイズ対応
+        // ========================================
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ========================================
+        // イベントリスナー
+        // ========================================
+        function setupEventListeners() {
+            const sliders = [
+                'seedCount', 'snowflakeCount', 'sphereSize',
+                'rotationSpeed', 'breathDepth', 'particleSize', 'glow'
+            ];
+
+            sliders.forEach(id => {
+                const slider = document.getElementById(id);
+                const valueSpan = document.getElementById(id + 'Value');
+
+                slider.addEventListener('input', () => {
+                    valueSpan.textContent = slider.value;
+                    params[id] = parseFloat(slider.value);
+
+                    // 再生成が必要なパラメータ
+                    if (['seedCount', 'sphereSize', 'particleSize', 'glow'].includes(id)) {
+                        createSeedParticles();
+                        createConnectionLines();
+                        createCoreGlow();
+                    }
+                    if (['snowflakeCount', 'sphereSize', 'glow'].includes(id)) {
+                        createSnowflakeParticles();
+                    }
+                });
+            });
+
+            document.getElementById('autoRotate').addEventListener('change', (e) => {
+                params.autoRotate = e.target.checked;
+            });
+
+            document.getElementById('clockwise').addEventListener('change', (e) => {
+                params.clockwise = e.target.checked;
+            });
+
+            document.getElementById('showConnections').addEventListener('change', (e) => {
+                params.showConnections = e.target.checked;
+                createConnectionLines();
+            });
+
+            document.getElementById('reset').addEventListener('click', () => {
+                // デフォルト値に戻す
+                params = {
+                    seedCount: 800,
+                    snowflakeCount: 200,
+                    sphereSize: 3,
+                    rotationSpeed: 0.3,
+                    breathDepth: 0.2,
+                    autoRotate: true,
+                    clockwise: false,
+                    particleSize: 0.04,
+                    glow: 1.0,
+                    showConnections: true
+                };
+
+                // UIを更新
+                document.getElementById('seedCount').value = params.seedCount;
+                document.getElementById('snowflakeCount').value = params.snowflakeCount;
+                document.getElementById('sphereSize').value = params.sphereSize;
+                document.getElementById('rotationSpeed').value = params.rotationSpeed;
+                document.getElementById('breathDepth').value = params.breathDepth;
+                document.getElementById('particleSize').value = params.particleSize;
+                document.getElementById('glow').value = params.glow;
+                document.getElementById('autoRotate').checked = params.autoRotate;
+                document.getElementById('clockwise').checked = params.clockwise;
+                document.getElementById('showConnections').checked = params.showConnections;
+
+                sliders.forEach(id => {
+                    document.getElementById(id + 'Value').textContent =
+                        document.getElementById(id).value;
+                });
+
+                // 再生成
+                createSeedParticles();
+                createSnowflakeParticles();
+                createConnectionLines();
+                createCoreGlow();
+
+                // カメラをリセット
+                camera.position.set(0, 0, 8);
+                controls.reset();
+            });
+
+            document.getElementById('downloadPNG').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const link = document.createElement('a');
+                link.download = `seed-3d-threejs-${Date.now()}.png`;
+                link.href = renderer.domElement.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        // ========================================
+        // 開始
+        // ========================================
+        init();
+    </script>
+</body>
+</html>
