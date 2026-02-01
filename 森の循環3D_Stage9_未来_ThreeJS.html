@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>森の循環3D — Stage 9: 未来 - 次の種へ（Three.js版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; background: #0f1a1a; min-height: 100vh; overflow: hidden; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; padding: 20px; z-index: 10; pointer-events: none; text-align: center; }
+        .overlay .main-title { font-size: 1.6rem; font-weight: 400; color: rgba(235, 245, 225, 0.98); letter-spacing: 0.25em; text-shadow: 0 0 25px rgba(136, 170, 85, 0.6); margin-bottom: 15px; }
+        .overlay .main-title .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(170, 200, 140, 0.65); letter-spacing: 0.12em; margin-top: 6px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay h2 { font-size: 1.2rem; font-weight: 300; color: rgba(235, 245, 225, 0.9); letter-spacing: 0.2em; text-shadow: 0 0 20px rgba(136, 170, 85, 0.5); }
+        .overlay h2 .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(170, 200, 140, 0.7); letter-spacing: 0.15em; margin-top: 5px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay .subtitle { font-size: 0.8rem; color: rgba(150, 190, 120, 0.8); margin-top: 8px; letter-spacing: 0.15em; }
+        .overlay .story { font-size: 0.85rem; color: rgba(215, 230, 200, 0.75); margin-top: 15px; line-height: 1.8; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .overlay .story .story-en { display: block; font-size: 0.75rem; color: rgba(160, 190, 140, 0.6); margin-top: 8px; font-family: 'Helvetica Neue', Arial, sans-serif; font-style: italic; }
+        .controls { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(15, 26, 26, 0.88); border-radius: 16px; padding: 25px; width: 280px; z-index: 100; border: 1px solid rgba(100, 150, 80, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); transition: transform 0.3s ease, opacity 0.3s ease; }
+        .controls.hidden { transform: translateY(-50%) translateX(120%); opacity: 0; pointer-events: none; }
+        .toggle-btn { position: fixed; right: 20px; bottom: 80px; width: 50px; height: 50px; border-radius: 50%; background: rgba(15, 26, 26, 0.9); border: 1px solid rgba(100, 150, 80, 0.3); color: rgba(215, 235, 195, 0.9); font-size: 1.4rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .toggle-btn:hover { background: rgba(30, 50, 40, 0.95); transform: scale(1.1); }
+        .toggle-btn.active { background: rgba(100, 150, 80, 0.4); }
+        .fullscreen-btn { position: fixed; right: 20px; bottom: 20px; width: 50px; height: 50px; border-radius: 50%; background: rgba(15, 26, 26, 0.9); border: 1px solid rgba(100, 150, 80, 0.3); color: rgba(215, 235, 195, 0.9); font-size: 1.2rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .fullscreen-btn:hover { background: rgba(30, 50, 40, 0.95); transform: scale(1.1); }
+        body.fullscreen-mode .overlay, body.fullscreen-mode .controls, body.fullscreen-mode .toggle-btn, body.fullscreen-mode .fullscreen-btn, body.fullscreen-mode .hint, body.fullscreen-mode footer { opacity: 0; pointer-events: none; }
+        .fullscreen-hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(215, 235, 195, 0.8); font-size: 0.9rem; z-index: 200; opacity: 0; pointer-events: none; text-align: center; }
+        body.fullscreen-mode .fullscreen-hint { animation: fadeInOut 2s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+        .control-group { margin-bottom: 20px; }
+        .control-group h3 { font-size: 0.65rem; font-weight: 400; color: rgba(150, 190, 130, 0.8); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+        .slider-container { margin-bottom: 14px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .slider-label { font-size: 0.8rem; color: rgba(215, 235, 205, 0.9); }
+        .slider-label-en { font-size: 0.6rem; color: rgba(140, 175, 120, 0.7); display: block; }
+        .slider-value { font-size: 0.75rem; color: rgba(170, 210, 130, 0.9); font-weight: 500; }
+        input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: rgba(70, 110, 60, 0.5); outline: none; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, #88aa55, #6a8f44); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 10px rgba(136, 170, 85, 0.5); }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 20px rgba(136, 170, 85, 0.8); }
+        .button-group { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+        .btn { padding: 10px 14px; border: none; border-radius: 8px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+        .btn-secondary { background: rgba(70, 110, 60, 0.6); color: rgba(215, 235, 205, 0.9); border: 1px solid rgba(100, 150, 80, 0.3); }
+        .btn-secondary:hover { background: rgba(90, 135, 75, 0.7); border-color: rgba(120, 175, 95, 0.5); }
+        .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .checkbox-container input { width: 14px; height: 14px; cursor: pointer; accent-color: #88aa55; }
+        .checkbox-container label { font-size: 0.8rem; color: rgba(215, 235, 205, 0.9); cursor: pointer; }
+        .checkbox-label-en { font-size: 0.6rem; color: rgba(140, 175, 120, 0.7); }
+        .info-box { background: rgba(50, 80, 45, 0.4); padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.7rem; color: rgba(170, 200, 150, 0.8); line-height: 1.6; }
+        .info-box strong { color: rgba(200, 230, 175, 0.9); }
+        .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(140, 175, 120, 0.6); z-index: 10; letter-spacing: 0.1em; }
+        footer { position: fixed; bottom: 20px; right: 20px; color: rgba(100, 140, 90, 0.5); font-size: 0.7rem; z-index: 10; }
+        @media (max-width: 768px) {
+            .controls { right: 10px; top: auto; bottom: 80px; transform: none; width: calc(100% - 20px); max-height: 45vh; overflow-y: auto; padding: 15px; }
+            .controls.hidden { transform: translateY(120%); opacity: 0; }
+            .controls.mobile-default-hidden { transform: translateY(120%); opacity: 0; pointer-events: none; }
+            .overlay { padding: 12px; }
+            .overlay .main-title { font-size: 1.2rem; letter-spacing: 0.15em; }
+            .overlay h2 { font-size: 0.95rem; }
+            .overlay .story { font-size: 0.7rem; margin-top: 10px; }
+            .hint { display: none; }
+            .toggle-btn, .fullscreen-btn { width: 44px; height: 44px; font-size: 1.2rem; }
+            .toggle-btn { bottom: 70px; right: 15px; }
+            .fullscreen-btn { bottom: 15px; right: 15px; }
+            footer { left: 15px; right: auto; font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="overlay">
+        <h1 class="main-title">いわての森が育む、いのちの循環<span class="title-en">The Cycle of Life Nurtured by Iwate's Forests</span></h1>
+        <h2>Stage 9: 未来 — 次の種へ<span class="title-en">Future — To the Next Seed</span></h2>
+        <p class="subtitle">森の循環3D — Forest Circulation 3D</p>
+        <p class="story">
+            一粒の種に宿る、無限の可能性。終わりなき循環の中で、いのちは次の世代へと紡がれていく。<br>
+            <span class="story-en">Infinite possibility dwells in a single seed. Within the endless cycle, life is woven into the next generation.</span>
+        </p>
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <h3>形状 / Shape</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">種の数<span class="slider-label-en">Seed Count</span></span><span class="slider-value" id="seedCountValue">50</span></div>
+                <input type="range" id="seedCount" min="20" max="100" value="50">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">希望の光<span class="slider-label-en">Light of Hope</span></span><span class="slider-value" id="hopeIntensityValue">150</span></div>
+                <input type="range" id="hopeIntensity" min="50" max="300" value="150">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">循環のリング<span class="slider-label-en">Cycle Ring</span></span><span class="slider-value" id="ringCountValue">3</span></div>
+                <input type="range" id="ringCount" min="1" max="5" value="3">
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>アニメーション / Animation</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">循環の速さ<span class="slider-label-en">Cycle Speed</span></span><span class="slider-value" id="cycleSpeedValue">0.5</span></div>
+                <input type="range" id="cycleSpeed" min="0.1" max="1" step="0.05" value="0.5">
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="autoRotate" checked>
+                <label for="autoRotate">自動回転 <span class="checkbox-label-en">Auto Rotate</span></label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showRings" checked>
+                <label for="showRings">循環リング表示 <span class="checkbox-label-en">Show Rings</span></label>
+            </div>
+        </div>
+        <div class="button-group">
+            <button class="btn btn-secondary" id="reset">リセット / Reset</button>
+            <button class="btn btn-secondary" id="downloadPNG">PNG保存 / Save</button>
+        </div>
+        <div class="info-box">
+            <strong>🌱 Stage 9 の特徴</strong><br>
+            • 新たな種の誕生<br>
+            • 永遠に続く循環<br>
+            • 希望の光<br>
+            • Stage 1へと続く未来
+        </div>
+    </div>
+    <p class="hint">マウスドラッグで視点を変更 / ホイールでズーム</p>
+    <button class="toggle-btn" id="toggleControls" title="設定パネル">⚙️</button>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全画面表示">⛶</button>
+    <div class="fullscreen-hint">タップで戻る / Tap to exit</div>
+    <footer>© ima Design Lab | Matsumori Woodworks — Iwate Forest Circulation Project — Three.js (MIT License)</footer>
+
+    <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let seeds = [], cycleRings = [], hopeParticles, centralGlow;
+        const clock = new THREE.Clock();
+
+        let params = { seedCount: 50, hopeIntensity: 150, ringCount: 3, cycleSpeed: 0.5, autoRotate: true, showRings: true };
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f1a1a);
+            scene.fog = new THREE.FogExp2(0x0f1a1a, 0.04);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 6, 10);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = params.autoRotate;
+            controls.autoRotateSpeed = 0.5;
+            controls.target.set(0, 0, 0);
+
+            createCentralGlow();
+            createSeeds();
+            createCycleRings();
+            createHopeParticles();
+            setupLighting();
+            setupEventListeners();
+            setupUIControls();
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function setupLighting() {
+            scene.add(new THREE.AmbientLight(0x2a3a2a, 0.5));
+
+            // Central emanating light
+            const centerLight = new THREE.PointLight(0x88aa55, 1.5, 15);
+            centerLight.position.set(0, 0, 0);
+            scene.add(centerLight);
+
+            // Soft fill lights
+            const fillLight1 = new THREE.PointLight(0xaaddaa, 0.4, 20);
+            fillLight1.position.set(5, 5, 5);
+            scene.add(fillLight1);
+
+            const fillLight2 = new THREE.PointLight(0x99cc77, 0.3, 18);
+            fillLight2.position.set(-5, 3, -5);
+            scene.add(fillLight2);
+        }
+
+        function createCentralGlow() {
+            if (centralGlow) {
+                scene.remove(centralGlow);
+                centralGlow.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                });
+            }
+
+            centralGlow = new THREE.Group();
+
+            // Core sphere
+            const coreGeo = new THREE.SphereGeometry(0.3, 32, 24);
+            const coreMat = new THREE.MeshBasicMaterial({
+                color: 0xeeffcc,
+                transparent: true,
+                opacity: 0.9
+            });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            centralGlow.add(core);
+
+            // Glow layers
+            for (let i = 1; i <= 4; i++) {
+                const glowGeo = new THREE.SphereGeometry(0.3 + i * 0.15, 24, 18);
+                const glowMat = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(0.25, 0.5, 0.6 - i * 0.1),
+                    transparent: true,
+                    opacity: 0.3 - i * 0.06,
+                    side: THREE.BackSide
+                });
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+                centralGlow.add(glow);
+            }
+
+            scene.add(centralGlow);
+        }
+
+        function createSeed() {
+            const group = new THREE.Group();
+
+            // Seed body - elongated ellipsoid
+            const seedGeo = new THREE.SphereGeometry(0.08, 12, 8);
+            seedGeo.scale(1, 1.5, 0.7);
+            const seedMat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(0.1 + Math.random() * 0.05, 0.6, 0.35 + Math.random() * 0.1),
+                roughness: 0.6,
+                metalness: 0.1
+            });
+            const seed = new THREE.Mesh(seedGeo, seedMat);
+            group.add(seed);
+
+            // Wing (for winged seeds like maple)
+            if (Math.random() > 0.5) {
+                const wingShape = new THREE.Shape();
+                wingShape.moveTo(0, 0);
+                wingShape.quadraticCurveTo(0.15, 0.05, 0.25, 0);
+                wingShape.quadraticCurveTo(0.15, -0.03, 0, 0);
+
+                const wingGeo = new THREE.ShapeGeometry(wingShape);
+                const wingMat = new THREE.MeshStandardMaterial({
+                    color: 0xccbb88,
+                    transparent: true,
+                    opacity: 0.7,
+                    side: THREE.DoubleSide
+                });
+                const wing = new THREE.Mesh(wingGeo, wingMat);
+                wing.position.y = 0.08;
+                wing.rotation.x = Math.PI / 2;
+                group.add(wing);
+            }
+
+            return group;
+        }
+
+        function createSeeds() {
+            seeds.forEach(s => {
+                scene.remove(s.mesh);
+                s.mesh.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                });
+            });
+            seeds = [];
+
+            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+            for (let i = 0; i < params.seedCount; i++) {
+                const seed = createSeed();
+
+                // Fibonacci sphere distribution with spiral outward motion
+                const t = i / params.seedCount;
+                const inclination = Math.acos(1 - 2 * t);
+                const azimuth = goldenAngle * i;
+
+                const radius = 1.5 + t * 3;
+                const x = radius * Math.sin(inclination) * Math.cos(azimuth);
+                const y = radius * Math.cos(inclination) * 0.6; // Flatten vertically
+                const z = radius * Math.sin(inclination) * Math.sin(azimuth);
+
+                seed.position.set(x, y, z);
+                seed.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
+                seeds.push({
+                    mesh: seed,
+                    basePos: new THREE.Vector3(x, y, z),
+                    offset: Math.random() * Math.PI * 2,
+                    orbitSpeed: 0.1 + Math.random() * 0.2
+                });
+                scene.add(seed);
+            }
+        }
+
+        function createCycleRings() {
+            cycleRings.forEach(r => {
+                scene.remove(r);
+                r.geometry.dispose();
+                r.material.dispose();
+            });
+            cycleRings = [];
+
+            for (let i = 0; i < params.ringCount; i++) {
+                const radius = 2 + i * 1.5;
+                const geo = new THREE.TorusGeometry(radius, 0.02, 8, 64);
+                const mat = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(0.28, 0.6, 0.4 + i * 0.1),
+                    transparent: true,
+                    opacity: 0.5 - i * 0.1
+                });
+                const ring = new THREE.Mesh(geo, mat);
+                ring.rotation.x = Math.PI / 2;
+                ring.userData.rotationSpeed = 0.2 / (i + 1);
+                ring.visible = params.showRings;
+                scene.add(ring);
+                cycleRings.push(ring);
+            }
+
+            // Add flowing arrows on rings
+            for (let i = 0; i < params.ringCount; i++) {
+                const radius = 2 + i * 1.5;
+                const arrowCount = 6 + i * 2;
+
+                for (let j = 0; j < arrowCount; j++) {
+                    const angle = (j / arrowCount) * Math.PI * 2;
+                    const arrowGeo = new THREE.ConeGeometry(0.05, 0.15, 4);
+                    const arrowMat = new THREE.MeshBasicMaterial({
+                        color: new THREE.Color().setHSL(0.28, 0.7, 0.5),
+                        transparent: true,
+                        opacity: 0.6
+                    });
+                    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+                    arrow.position.set(
+                        Math.cos(angle) * radius,
+                        0,
+                        Math.sin(angle) * radius
+                    );
+                    arrow.rotation.z = -Math.PI / 2;
+                    arrow.rotation.y = -angle + Math.PI / 2;
+                    arrow.userData.ringIndex = i;
+                    arrow.userData.baseAngle = angle;
+                    arrow.visible = params.showRings;
+                    scene.add(arrow);
+                    cycleRings.push(arrow);
+                }
+            }
+        }
+
+        function createHopeParticles() {
+            if (hopeParticles) {
+                scene.remove(hopeParticles);
+                hopeParticles.geometry.dispose();
+                hopeParticles.material.dispose();
+            }
+
+            const count = params.hopeIntensity;
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+            const sizes = new Float32Array(count);
+
+            for (let i = 0; i < count; i++) {
+                // Particles spiral outward from center
+                const t = i / count;
+                const angle = t * Math.PI * 8;
+                const radius = t * 5;
+
+                positions[i * 3] = Math.cos(angle) * radius + (Math.random() - 0.5) * 0.5;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 3;
+                positions[i * 3 + 2] = Math.sin(angle) * radius + (Math.random() - 0.5) * 0.5;
+
+                sizes[i] = 0.02 + Math.random() * 0.04;
+
+                // Green to golden gradient
+                const hue = 0.22 + t * 0.08;
+                const saturation = 0.5 + Math.random() * 0.3;
+                const lightness = 0.5 + Math.random() * 0.3;
+                const color = new THREE.Color().setHSL(hue, saturation, lightness);
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const mat = new THREE.PointsMaterial({
+                size: 0.06,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.7,
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
+            });
+
+            hopeParticles = new THREE.Points(geo, mat);
+            scene.add(hopeParticles);
+        }
+
+        function setupUIControls() {
+            const controlsPanel = document.querySelector('.controls');
+            const toggleBtn = document.getElementById('toggleControls');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                controlsPanel.classList.add('mobile-default-hidden');
+            }
+
+            toggleBtn.addEventListener('click', () => {
+                controlsPanel.classList.remove('mobile-default-hidden');
+                controlsPanel.classList.toggle('hidden');
+                toggleBtn.classList.toggle('active');
+            });
+
+            fullscreenBtn.addEventListener('click', () => {
+                document.body.classList.add('fullscreen-mode');
+            });
+
+            document.getElementById('canvas-container').addEventListener('click', () => {
+                if (document.body.classList.contains('fullscreen-mode')) {
+                    document.body.classList.remove('fullscreen-mode');
+                }
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('seedCount').addEventListener('input', e => {
+                params.seedCount = parseInt(e.target.value);
+                document.getElementById('seedCountValue').textContent = params.seedCount;
+                createSeeds();
+            });
+
+            document.getElementById('hopeIntensity').addEventListener('input', e => {
+                params.hopeIntensity = parseInt(e.target.value);
+                document.getElementById('hopeIntensityValue').textContent = params.hopeIntensity;
+                createHopeParticles();
+            });
+
+            document.getElementById('ringCount').addEventListener('input', e => {
+                params.ringCount = parseInt(e.target.value);
+                document.getElementById('ringCountValue').textContent = params.ringCount;
+                createCycleRings();
+            });
+
+            document.getElementById('cycleSpeed').addEventListener('input', e => {
+                params.cycleSpeed = parseFloat(e.target.value);
+                document.getElementById('cycleSpeedValue').textContent = params.cycleSpeed.toFixed(2);
+            });
+
+            document.getElementById('autoRotate').addEventListener('change', e => {
+                params.autoRotate = e.target.checked;
+                controls.autoRotate = params.autoRotate;
+            });
+
+            document.getElementById('showRings').addEventListener('change', e => {
+                params.showRings = e.target.checked;
+                cycleRings.forEach(r => r.visible = params.showRings);
+            });
+
+            document.getElementById('reset').addEventListener('click', () => {
+                params = { seedCount: 50, hopeIntensity: 150, ringCount: 3, cycleSpeed: 0.5, autoRotate: true, showRings: true };
+                document.getElementById('seedCount').value = params.seedCount;
+                document.getElementById('seedCountValue').textContent = params.seedCount;
+                document.getElementById('hopeIntensity').value = params.hopeIntensity;
+                document.getElementById('hopeIntensityValue').textContent = params.hopeIntensity;
+                document.getElementById('ringCount').value = params.ringCount;
+                document.getElementById('ringCountValue').textContent = params.ringCount;
+                document.getElementById('cycleSpeed').value = params.cycleSpeed;
+                document.getElementById('cycleSpeedValue').textContent = params.cycleSpeed.toFixed(2);
+                document.getElementById('autoRotate').checked = params.autoRotate;
+                document.getElementById('showRings').checked = params.showRings;
+                controls.autoRotate = params.autoRotate;
+                createSeeds();
+                createCycleRings();
+                createHopeParticles();
+            });
+
+            document.getElementById('downloadPNG').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const link = document.createElement('a');
+                link.download = 'iwate_forest_stage9_future.png';
+                link.href = renderer.domElement.toDataURL('image/png');
+                link.click();
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') document.body.classList.remove('fullscreen-mode');
+                if (e.key === 'r' || e.key === 'R') document.getElementById('reset').click();
+                if (e.key === 's' || e.key === 'S') document.getElementById('downloadPNG').click();
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            const speed = params.cycleSpeed;
+
+            // Animate central glow pulsing
+            if (centralGlow) {
+                const pulse = 1 + Math.sin(time * speed * 2) * 0.1;
+                centralGlow.scale.setScalar(pulse);
+            }
+
+            // Animate seeds - gentle floating and slow orbit
+            seeds.forEach((s, i) => {
+                const mesh = s.mesh;
+                const base = s.basePos;
+                const offset = s.offset;
+
+                // Gentle orbital motion
+                const orbitAngle = time * speed * s.orbitSpeed + offset;
+                const orbitRadius = 0.1;
+                mesh.position.x = base.x + Math.cos(orbitAngle) * orbitRadius;
+                mesh.position.y = base.y + Math.sin(time * speed * 0.5 + offset) * 0.1;
+                mesh.position.z = base.z + Math.sin(orbitAngle) * orbitRadius;
+
+                // Gentle rotation
+                mesh.rotation.y += 0.005 * speed;
+            });
+
+            // Animate cycle rings
+            cycleRings.forEach((obj, i) => {
+                if (obj.userData.rotationSpeed !== undefined) {
+                    obj.rotation.z += obj.userData.rotationSpeed * speed * 0.02;
+                }
+                if (obj.userData.ringIndex !== undefined) {
+                    // Arrows follow ring rotation
+                    const ringIndex = obj.userData.ringIndex;
+                    const baseAngle = obj.userData.baseAngle;
+                    const radius = 2 + ringIndex * 1.5;
+                    const currentAngle = baseAngle + time * speed * 0.2 / (ringIndex + 1);
+                    obj.position.x = Math.cos(currentAngle) * radius;
+                    obj.position.z = Math.sin(currentAngle) * radius;
+                    obj.rotation.y = -currentAngle + Math.PI / 2;
+                }
+            });
+
+            // Animate hope particles
+            if (hopeParticles) {
+                const positions = hopeParticles.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length / 3; i++) {
+                    // Spiral outward motion
+                    const x = positions[i * 3];
+                    const z = positions[i * 3 + 2];
+                    const currentRadius = Math.sqrt(x * x + z * z);
+                    const currentAngle = Math.atan2(z, x);
+
+                    const newAngle = currentAngle + speed * 0.005;
+                    const newRadius = currentRadius + speed * 0.002;
+
+                    if (newRadius > 6) {
+                        // Reset to center
+                        positions[i * 3] = (Math.random() - 0.5) * 0.5;
+                        positions[i * 3 + 1] = (Math.random() - 0.5) * 0.5;
+                        positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+                    } else {
+                        positions[i * 3] = Math.cos(newAngle) * newRadius;
+                        positions[i * 3 + 2] = Math.sin(newAngle) * newRadius;
+                        positions[i * 3 + 1] += Math.sin(time * speed + i) * 0.002;
+                    }
+                }
+                hopeParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>森の循環3D — Stage 7: 端材 - 新たな命（Three.js版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; background: #161412; min-height: 100vh; overflow: hidden; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; padding: 20px; z-index: 10; pointer-events: none; text-align: center; }
+        .overlay .main-title { font-size: 1.6rem; font-weight: 400; color: rgba(250, 240, 225, 0.98); letter-spacing: 0.25em; text-shadow: 0 0 25px rgba(190, 150, 90, 0.5); margin-bottom: 15px; }
+        .overlay .main-title .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(210, 175, 130, 0.65); letter-spacing: 0.12em; margin-top: 6px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay h2 { font-size: 1.2rem; font-weight: 300; color: rgba(250, 240, 225, 0.9); letter-spacing: 0.2em; text-shadow: 0 0 20px rgba(190, 150, 90, 0.4); }
+        .overlay h2 .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(210, 175, 130, 0.7); letter-spacing: 0.15em; margin-top: 5px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay .subtitle { font-size: 0.8rem; color: rgba(190, 155, 115, 0.8); margin-top: 8px; letter-spacing: 0.15em; }
+        .overlay .story { font-size: 0.85rem; color: rgba(235, 215, 190, 0.75); margin-top: 15px; line-height: 1.8; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .overlay .story .story-en { display: block; font-size: 0.75rem; color: rgba(190, 160, 125, 0.6); margin-top: 8px; font-family: 'Helvetica Neue', Arial, sans-serif; font-style: italic; }
+        .controls { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(22, 20, 18, 0.88); border-radius: 16px; padding: 25px; width: 280px; z-index: 100; border: 1px solid rgba(170, 130, 85, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); transition: transform 0.3s ease, opacity 0.3s ease; }
+        .controls.hidden { transform: translateY(-50%) translateX(120%); opacity: 0; pointer-events: none; }
+        .toggle-btn { position: fixed; right: 20px; bottom: 80px; width: 50px; height: 50px; border-radius: 50%; background: rgba(22, 20, 18, 0.9); border: 1px solid rgba(170, 130, 85, 0.3); color: rgba(235, 215, 185, 0.9); font-size: 1.4rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .toggle-btn:hover { background: rgba(45, 38, 32, 0.95); transform: scale(1.1); }
+        .toggle-btn.active { background: rgba(170, 130, 85, 0.4); }
+        .fullscreen-btn { position: fixed; right: 20px; bottom: 20px; width: 50px; height: 50px; border-radius: 50%; background: rgba(22, 20, 18, 0.9); border: 1px solid rgba(170, 130, 85, 0.3); color: rgba(235, 215, 185, 0.9); font-size: 1.2rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .fullscreen-btn:hover { background: rgba(45, 38, 32, 0.95); transform: scale(1.1); }
+        body.fullscreen-mode .overlay, body.fullscreen-mode .controls, body.fullscreen-mode .toggle-btn, body.fullscreen-mode .fullscreen-btn, body.fullscreen-mode .hint, body.fullscreen-mode footer { opacity: 0; pointer-events: none; }
+        .fullscreen-hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(235, 215, 185, 0.8); font-size: 0.9rem; z-index: 200; opacity: 0; pointer-events: none; text-align: center; }
+        body.fullscreen-mode .fullscreen-hint { animation: fadeInOut 2s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+        .control-group { margin-bottom: 20px; }
+        .control-group h3 { font-size: 0.65rem; font-weight: 400; color: rgba(190, 155, 115, 0.8); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+        .slider-container { margin-bottom: 14px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .slider-label { font-size: 0.8rem; color: rgba(235, 215, 195, 0.9); }
+        .slider-label-en { font-size: 0.6rem; color: rgba(170, 140, 105, 0.7); display: block; }
+        .slider-value { font-size: 0.75rem; color: rgba(210, 165, 105, 0.9); font-weight: 500; }
+        input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: rgba(90, 70, 50, 0.5); outline: none; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, #88aa55, #6a8f44); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 10px rgba(136, 170, 85, 0.5); }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 20px rgba(136, 170, 85, 0.8); }
+        .button-group { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+        .btn { padding: 10px 14px; border: none; border-radius: 8px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+        .btn-secondary { background: rgba(90, 70, 50, 0.6); color: rgba(235, 215, 195, 0.9); border: 1px solid rgba(170, 130, 85, 0.3); }
+        .btn-secondary:hover { background: rgba(110, 88, 62, 0.7); border-color: rgba(190, 150, 105, 0.5); }
+        .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .checkbox-container input { width: 14px; height: 14px; cursor: pointer; accent-color: #88aa55; }
+        .checkbox-container label { font-size: 0.8rem; color: rgba(235, 215, 195, 0.9); cursor: pointer; }
+        .checkbox-label-en { font-size: 0.6rem; color: rgba(170, 140, 105, 0.7); }
+        .info-box { background: rgba(70, 55, 42, 0.4); padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.7rem; color: rgba(190, 160, 125, 0.8); line-height: 1.6; }
+        .info-box strong { color: rgba(230, 195, 155, 0.9); }
+        .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(170, 140, 105, 0.6); z-index: 10; letter-spacing: 0.1em; }
+        footer { position: fixed; bottom: 20px; right: 20px; color: rgba(130, 105, 85, 0.5); font-size: 0.7rem; z-index: 10; }
+        @media (max-width: 768px) {
+            .controls { right: 10px; top: auto; bottom: 80px; transform: none; width: calc(100% - 20px); max-height: 45vh; overflow-y: auto; padding: 15px; }
+            .controls.hidden { transform: translateY(120%); opacity: 0; }
+            .controls.mobile-default-hidden { transform: translateY(120%); opacity: 0; pointer-events: none; }
+            .overlay { padding: 12px; }
+            .overlay .main-title { font-size: 1.2rem; letter-spacing: 0.15em; }
+            .overlay h2 { font-size: 0.95rem; }
+            .overlay .story { font-size: 0.7rem; margin-top: 10px; }
+            .hint { display: none; }
+            .toggle-btn, .fullscreen-btn { width: 44px; height: 44px; font-size: 1.2rem; }
+            .toggle-btn { bottom: 70px; right: 15px; }
+            .fullscreen-btn { bottom: 15px; right: 15px; }
+            footer { left: 15px; right: auto; font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="overlay">
+        <h1 class="main-title">いわての森が育む、いのちの循環<span class="title-en">The Cycle of Life Nurtured by Iwate's Forests</span></h1>
+        <h2>Stage 7: 端材 — 新たな命<span class="title-en">Offcuts — New Life</span></h2>
+        <p class="subtitle">森の循環3D — Forest Circulation 3D</p>
+        <p class="story">
+            どんな小さな欠片にも、木が生きた証が宿る。端材は捨てられるものではなく、新たな命を待つ種。<br>
+            <span class="story-en">Even the smallest fragment holds proof of a tree's life. Offcuts are not waste, but seeds awaiting new life.</span>
+        </p>
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <h3>形状 / Shape</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">端材の数<span class="slider-label-en">Offcut Count</span></span><span class="slider-value" id="offcutCountValue">25</span></div>
+                <input type="range" id="offcutCount" min="10" max="50" value="25">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">小物の数<span class="slider-label-en">Small Items</span></span><span class="slider-value" id="itemCountValue">5</span></div>
+                <input type="range" id="itemCount" min="2" max="10" value="5">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">生命の光<span class="slider-label-en">Life Glow</span></span><span class="slider-value" id="glowIntensityValue">100</span></div>
+                <input type="range" id="glowIntensity" min="30" max="200" value="100">
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>アニメーション / Animation</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">浮遊速度<span class="slider-label-en">Float Speed</span></span><span class="slider-value" id="floatSpeedValue">0.5</span></div>
+                <input type="range" id="floatSpeed" min="0.1" max="1" step="0.05" value="0.5">
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="autoRotate" checked>
+                <label for="autoRotate">自動回転 <span class="checkbox-label-en">Auto Rotate</span></label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showGlow" checked>
+                <label for="showGlow">生命の光を表示 <span class="checkbox-label-en">Show Life Glow</span></label>
+            </div>
+        </div>
+        <div class="button-group">
+            <button class="btn btn-secondary" id="reset">リセット / Reset</button>
+            <button class="btn btn-secondary" id="downloadPNG">PNG保存 / Save</button>
+        </div>
+        <div class="info-box">
+            <strong>♻️ Stage 7 の特徴</strong><br>
+            • 様々な形の端材たち<br>
+            • 小物へと生まれ変わる姿<br>
+            • 宿る生命の光<br>
+            • もったいないの心
+        </div>
+    </div>
+    <p class="hint">マウスドラッグで視点を変更 / ホイールでズーム</p>
+    <button class="toggle-btn" id="toggleControls" title="設定パネル">⚙️</button>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全画面表示">⛶</button>
+    <div class="fullscreen-hint">タップで戻る / Tap to exit</div>
+    <footer>© ima Design Lab | Matsumori Woodworks — Iwate Forest Circulation Project — Three.js (MIT License)</footer>
+
+    <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let offcuts = [], smallItems = [], glowParticles, surface;
+        const clock = new THREE.Clock();
+
+        let params = { offcutCount: 25, itemCount: 5, glowIntensity: 100, floatSpeed: 0.5, autoRotate: true, showGlow: true };
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x161412);
+            scene.fog = new THREE.FogExp2(0x161412, 0.06);
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(5, 5, 7);
+            camera.lookAt(0, 0.5, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = params.autoRotate;
+            controls.autoRotateSpeed = 0.4;
+            controls.target.set(0, 0.5, 0);
+
+            createSurface();
+            createOffcuts();
+            createSmallItems();
+            createGlowParticles();
+            setupLighting();
+            setupEventListeners();
+            setupUIControls();
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function setupLighting() {
+            scene.add(new THREE.AmbientLight(0x4a4035, 0.6));
+
+            // Warm overhead light
+            const mainLight = new THREE.PointLight(0xffeedd, 0.8, 20);
+            mainLight.position.set(2, 6, 2);
+            scene.add(mainLight);
+
+            // Side fill lights
+            const fillLight1 = new THREE.PointLight(0xffddaa, 0.4, 15);
+            fillLight1.position.set(-4, 3, -2);
+            scene.add(fillLight1);
+
+            const fillLight2 = new THREE.PointLight(0xeebb77, 0.3, 12);
+            fillLight2.position.set(4, 2, -3);
+            scene.add(fillLight2);
+        }
+
+        function createSurface() {
+            if (surface) {
+                scene.remove(surface);
+                surface.geometry.dispose();
+                surface.material.dispose();
+            }
+
+            const geo = new THREE.PlaneGeometry(15, 15);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x28221c,
+                roughness: 0.85,
+                metalness: 0.05
+            });
+            surface = new THREE.Mesh(geo, mat);
+            surface.rotation.x = -Math.PI / 2;
+            scene.add(surface);
+        }
+
+        function createOffcut() {
+            const types = ['block', 'wedge', 'strip', 'irregular', 'disc'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            let geo;
+
+            const colors = [0xc9a66b, 0xb8956a, 0xa68b5b, 0xd4b27a, 0x9a8050];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            const mat = new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: 0.6 + Math.random() * 0.3,
+                metalness: 0.02
+            });
+
+            switch(type) {
+                case 'block':
+                    geo = new THREE.BoxGeometry(
+                        0.1 + Math.random() * 0.25,
+                        0.05 + Math.random() * 0.15,
+                        0.1 + Math.random() * 0.3
+                    );
+                    break;
+                case 'wedge':
+                    const shape = new THREE.Shape();
+                    const w = 0.1 + Math.random() * 0.2;
+                    const h = 0.15 + Math.random() * 0.2;
+                    shape.moveTo(0, 0);
+                    shape.lineTo(w, 0);
+                    shape.lineTo(w * 0.3, h);
+                    shape.lineTo(0, h * 0.8);
+                    shape.closePath();
+                    geo = new THREE.ExtrudeGeometry(shape, { depth: 0.05 + Math.random() * 0.1, bevelEnabled: false });
+                    break;
+                case 'strip':
+                    geo = new THREE.BoxGeometry(
+                        0.3 + Math.random() * 0.4,
+                        0.03 + Math.random() * 0.05,
+                        0.03 + Math.random() * 0.06
+                    );
+                    break;
+                case 'irregular':
+                    geo = new THREE.TetrahedronGeometry(0.08 + Math.random() * 0.12);
+                    break;
+                case 'disc':
+                    geo = new THREE.CylinderGeometry(
+                        0.05 + Math.random() * 0.1,
+                        0.05 + Math.random() * 0.1,
+                        0.02 + Math.random() * 0.04,
+                        12
+                    );
+                    break;
+            }
+
+            return new THREE.Mesh(geo, mat);
+        }
+
+        function createOffcuts() {
+            offcuts.forEach(o => {
+                scene.remove(o);
+                o.geometry.dispose();
+                o.material.dispose();
+            });
+            offcuts = [];
+
+            for (let i = 0; i < params.offcutCount; i++) {
+                const offcut = createOffcut();
+
+                // Scatter on surface with some clustering
+                const cluster = Math.random() < 0.6;
+                const angle = Math.random() * Math.PI * 2;
+                const radius = cluster ? Math.random() * 2 : 1.5 + Math.random() * 2.5;
+
+                offcut.position.set(
+                    Math.cos(angle) * radius,
+                    0.02 + Math.random() * 0.08,
+                    Math.sin(angle) * radius
+                );
+                offcut.rotation.set(
+                    Math.random() * 0.3,
+                    Math.random() * Math.PI * 2,
+                    Math.random() * 0.3
+                );
+
+                scene.add(offcut);
+                offcuts.push(offcut);
+            }
+        }
+
+        function createSmallItem(type) {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0xc9a66b,
+                roughness: 0.35,
+                metalness: 0.05
+            });
+
+            switch(type) {
+                case 'coaster':
+                    const coasterGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.015, 24);
+                    const coaster = new THREE.Mesh(coasterGeo, mat);
+                    group.add(coaster);
+                    break;
+                case 'button':
+                    const buttonGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.008, 16);
+                    const button = new THREE.Mesh(buttonGeo, mat);
+                    // Add holes
+                    const holeMat = new THREE.MeshStandardMaterial({ color: 0x161412, roughness: 0.9 });
+                    const holeGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.01, 8);
+                    for (let i = 0; i < 4; i++) {
+                        const angle = (i / 4) * Math.PI * 2;
+                        const hole = new THREE.Mesh(holeGeo, holeMat);
+                        hole.position.set(Math.cos(angle) * 0.012, 0, Math.sin(angle) * 0.012);
+                        group.add(hole);
+                    }
+                    group.add(button);
+                    break;
+                case 'chopstickRest':
+                    const restGeo = new THREE.BoxGeometry(0.08, 0.015, 0.025);
+                    const rest = new THREE.Mesh(restGeo, mat);
+                    // Add curve indent
+                    group.add(rest);
+                    break;
+                case 'pendant':
+                    const pendantGeo = new THREE.SphereGeometry(0.02, 16, 12);
+                    pendantGeo.scale(1, 1.3, 0.5);
+                    const pendant = new THREE.Mesh(pendantGeo, mat);
+                    // Add cord hole
+                    const cordHoleGeo = new THREE.TorusGeometry(0.015, 0.003, 8, 16);
+                    const cordHole = new THREE.Mesh(cordHoleGeo, mat);
+                    cordHole.position.y = 0.035;
+                    cordHole.rotation.x = Math.PI / 2;
+                    group.add(cordHole);
+                    group.add(pendant);
+                    break;
+                case 'block':
+                    const blockGeo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+                    const block = new THREE.Mesh(blockGeo, mat);
+                    // Round edges slightly by scaling
+                    group.add(block);
+                    break;
+            }
+
+            return group;
+        }
+
+        function createSmallItems() {
+            smallItems.forEach(item => {
+                scene.remove(item);
+                item.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                });
+            });
+            smallItems = [];
+
+            const types = ['coaster', 'button', 'chopstickRest', 'pendant', 'block'];
+            const positions = [
+                new THREE.Vector3(0, 0.5, 0),
+                new THREE.Vector3(-0.4, 0.35, 0.3),
+                new THREE.Vector3(0.5, 0.4, -0.2),
+                new THREE.Vector3(-0.3, 0.45, -0.4),
+                new THREE.Vector3(0.3, 0.38, 0.4),
+                new THREE.Vector3(0, 0.42, -0.5),
+                new THREE.Vector3(-0.5, 0.36, 0),
+                new THREE.Vector3(0.4, 0.44, 0.1),
+                new THREE.Vector3(-0.2, 0.4, 0.5),
+                new THREE.Vector3(0.2, 0.37, -0.4)
+            ];
+
+            for (let i = 0; i < Math.min(params.itemCount, positions.length); i++) {
+                const type = types[i % types.length];
+                const item = createSmallItem(type);
+                item.position.copy(positions[i]);
+                item.rotation.set(
+                    Math.random() * 0.2,
+                    Math.random() * Math.PI * 2,
+                    Math.random() * 0.2
+                );
+                item.userData.baseY = positions[i].y;
+                item.userData.floatOffset = Math.random() * Math.PI * 2;
+                scene.add(item);
+                smallItems.push(item);
+            }
+        }
+
+        function createGlowParticles() {
+            if (glowParticles) {
+                scene.remove(glowParticles);
+                glowParticles.geometry.dispose();
+                glowParticles.material.dispose();
+            }
+
+            const count = params.glowIntensity;
+            const positions = new Float32Array(count * 3);
+            const sizes = new Float32Array(count);
+            const colors = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                // Particles emanate from offcuts and items
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 3;
+                positions[i * 3] = Math.cos(angle) * radius;
+                positions[i * 3 + 1] = Math.random() * 1.5 + 0.1;
+                positions[i * 3 + 2] = Math.sin(angle) * radius;
+
+                sizes[i] = 0.02 + Math.random() * 0.04;
+
+                // Warm golden glow colors
+                const brightness = 0.6 + Math.random() * 0.4;
+                colors[i * 3] = 1.0 * brightness;
+                colors[i * 3 + 1] = 0.85 * brightness;
+                colors[i * 3 + 2] = 0.5 * brightness;
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const mat = new THREE.PointsMaterial({
+                size: 0.05,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
+            });
+
+            glowParticles = new THREE.Points(geo, mat);
+            glowParticles.visible = params.showGlow;
+            scene.add(glowParticles);
+        }
+
+        function setupUIControls() {
+            const controlsPanel = document.querySelector('.controls');
+            const toggleBtn = document.getElementById('toggleControls');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                controlsPanel.classList.add('mobile-default-hidden');
+            }
+
+            toggleBtn.addEventListener('click', () => {
+                controlsPanel.classList.remove('mobile-default-hidden');
+                controlsPanel.classList.toggle('hidden');
+                toggleBtn.classList.toggle('active');
+            });
+
+            fullscreenBtn.addEventListener('click', () => {
+                document.body.classList.add('fullscreen-mode');
+            });
+
+            document.getElementById('canvas-container').addEventListener('click', () => {
+                if (document.body.classList.contains('fullscreen-mode')) {
+                    document.body.classList.remove('fullscreen-mode');
+                }
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('offcutCount').addEventListener('input', e => {
+                params.offcutCount = parseInt(e.target.value);
+                document.getElementById('offcutCountValue').textContent = params.offcutCount;
+                createOffcuts();
+            });
+
+            document.getElementById('itemCount').addEventListener('input', e => {
+                params.itemCount = parseInt(e.target.value);
+                document.getElementById('itemCountValue').textContent = params.itemCount;
+                createSmallItems();
+            });
+
+            document.getElementById('glowIntensity').addEventListener('input', e => {
+                params.glowIntensity = parseInt(e.target.value);
+                document.getElementById('glowIntensityValue').textContent = params.glowIntensity;
+                createGlowParticles();
+            });
+
+            document.getElementById('floatSpeed').addEventListener('input', e => {
+                params.floatSpeed = parseFloat(e.target.value);
+                document.getElementById('floatSpeedValue').textContent = params.floatSpeed.toFixed(2);
+            });
+
+            document.getElementById('autoRotate').addEventListener('change', e => {
+                params.autoRotate = e.target.checked;
+                controls.autoRotate = params.autoRotate;
+            });
+
+            document.getElementById('showGlow').addEventListener('change', e => {
+                params.showGlow = e.target.checked;
+                if (glowParticles) glowParticles.visible = params.showGlow;
+            });
+
+            document.getElementById('reset').addEventListener('click', () => {
+                params = { offcutCount: 25, itemCount: 5, glowIntensity: 100, floatSpeed: 0.5, autoRotate: true, showGlow: true };
+                document.getElementById('offcutCount').value = params.offcutCount;
+                document.getElementById('offcutCountValue').textContent = params.offcutCount;
+                document.getElementById('itemCount').value = params.itemCount;
+                document.getElementById('itemCountValue').textContent = params.itemCount;
+                document.getElementById('glowIntensity').value = params.glowIntensity;
+                document.getElementById('glowIntensityValue').textContent = params.glowIntensity;
+                document.getElementById('floatSpeed').value = params.floatSpeed;
+                document.getElementById('floatSpeedValue').textContent = params.floatSpeed.toFixed(2);
+                document.getElementById('autoRotate').checked = params.autoRotate;
+                document.getElementById('showGlow').checked = params.showGlow;
+                controls.autoRotate = params.autoRotate;
+                createOffcuts();
+                createSmallItems();
+                createGlowParticles();
+            });
+
+            document.getElementById('downloadPNG').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const link = document.createElement('a');
+                link.download = 'iwate_forest_stage7_offcuts.png';
+                link.href = renderer.domElement.toDataURL('image/png');
+                link.click();
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') document.body.classList.remove('fullscreen-mode');
+                if (e.key === 'r' || e.key === 'R') document.getElementById('reset').click();
+                if (e.key === 's' || e.key === 'S') document.getElementById('downloadPNG').click();
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            const speed = params.floatSpeed;
+
+            // Animate small items - gentle floating
+            smallItems.forEach((item, i) => {
+                const baseY = item.userData.baseY;
+                const offset = item.userData.floatOffset;
+                item.position.y = baseY + Math.sin(time * speed + offset) * 0.03;
+                item.rotation.y += 0.002 * speed;
+            });
+
+            // Animate glow particles
+            if (glowParticles && params.showGlow) {
+                const positions = glowParticles.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length / 3; i++) {
+                    // Upward drift with swirl
+                    positions[i * 3 + 1] += 0.002 * speed;
+                    positions[i * 3] += Math.sin(time * speed + i) * 0.001;
+                    positions[i * 3 + 2] += Math.cos(time * speed * 0.8 + i * 0.5) * 0.001;
+
+                    // Reset particles that float too high
+                    if (positions[i * 3 + 1] > 2) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const radius = Math.random() * 2;
+                        positions[i * 3] = Math.cos(angle) * radius;
+                        positions[i * 3 + 1] = 0.1;
+                        positions[i * 3 + 2] = Math.sin(angle) * radius;
+                    }
+                }
+                glowParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>

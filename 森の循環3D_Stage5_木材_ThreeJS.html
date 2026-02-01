@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>森の循環3D — Stage 5: 木材 - 刻まれる記憶（Three.js版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; background: #12100a; min-height: 100vh; overflow: hidden; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; padding: 20px; z-index: 10; pointer-events: none; text-align: center; }
+        .overlay .main-title { font-size: 1.6rem; font-weight: 400; color: rgba(245, 235, 220, 0.98); letter-spacing: 0.25em; text-shadow: 0 0 25px rgba(180, 140, 80, 0.5); margin-bottom: 15px; }
+        .overlay .main-title .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(200, 170, 130, 0.65); letter-spacing: 0.12em; margin-top: 6px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay h2 { font-size: 1.2rem; font-weight: 300; color: rgba(245, 235, 220, 0.9); letter-spacing: 0.2em; text-shadow: 0 0 20px rgba(180, 140, 80, 0.4); }
+        .overlay h2 .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(200, 170, 130, 0.7); letter-spacing: 0.15em; margin-top: 5px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay .subtitle { font-size: 0.8rem; color: rgba(180, 150, 110, 0.8); margin-top: 8px; letter-spacing: 0.15em; }
+        .overlay .story { font-size: 0.85rem; color: rgba(220, 200, 175, 0.75); margin-top: 15px; line-height: 1.8; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .overlay .story .story-en { display: block; font-size: 0.75rem; color: rgba(180, 150, 120, 0.6); margin-top: 8px; font-family: 'Helvetica Neue', Arial, sans-serif; font-style: italic; }
+        .controls { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(18, 16, 10, 0.88); border-radius: 16px; padding: 25px; width: 280px; z-index: 100; border: 1px solid rgba(150, 120, 80, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); transition: transform 0.3s ease, opacity 0.3s ease; }
+        .controls.hidden { transform: translateY(-50%) translateX(120%); opacity: 0; pointer-events: none; }
+        .toggle-btn { position: fixed; right: 20px; bottom: 80px; width: 50px; height: 50px; border-radius: 50%; background: rgba(18, 16, 10, 0.9); border: 1px solid rgba(150, 120, 80, 0.3); color: rgba(220, 200, 170, 0.9); font-size: 1.4rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .toggle-btn:hover { background: rgba(40, 35, 25, 0.95); transform: scale(1.1); }
+        .toggle-btn.active { background: rgba(150, 120, 80, 0.4); }
+        .fullscreen-btn { position: fixed; right: 20px; bottom: 20px; width: 50px; height: 50px; border-radius: 50%; background: rgba(18, 16, 10, 0.9); border: 1px solid rgba(150, 120, 80, 0.3); color: rgba(220, 200, 170, 0.9); font-size: 1.2rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .fullscreen-btn:hover { background: rgba(40, 35, 25, 0.95); transform: scale(1.1); }
+        body.fullscreen-mode .overlay, body.fullscreen-mode .controls, body.fullscreen-mode .toggle-btn, body.fullscreen-mode .fullscreen-btn, body.fullscreen-mode .hint, body.fullscreen-mode footer { opacity: 0; pointer-events: none; }
+        .fullscreen-hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(220, 200, 170, 0.8); font-size: 0.9rem; z-index: 200; opacity: 0; pointer-events: none; text-align: center; }
+        body.fullscreen-mode .fullscreen-hint { animation: fadeInOut 2s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+        .control-group { margin-bottom: 20px; }
+        .control-group h3 { font-size: 0.65rem; font-weight: 400; color: rgba(180, 150, 120, 0.8); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+        .slider-container { margin-bottom: 14px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .slider-label { font-size: 0.8rem; color: rgba(220, 200, 180, 0.9); }
+        .slider-label-en { font-size: 0.6rem; color: rgba(160, 130, 100, 0.7); display: block; }
+        .slider-value { font-size: 0.75rem; color: rgba(200, 160, 100, 0.9); font-weight: 500; }
+        input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: rgba(80, 60, 40, 0.5); outline: none; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, #88aa55, #6a8f44); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 10px rgba(136, 170, 85, 0.5); }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 20px rgba(136, 170, 85, 0.8); }
+        .button-group { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+        .btn { padding: 10px 14px; border: none; border-radius: 8px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+        .btn-secondary { background: rgba(80, 60, 40, 0.6); color: rgba(220, 200, 180, 0.9); border: 1px solid rgba(150, 120, 80, 0.3); }
+        .btn-secondary:hover { background: rgba(100, 80, 55, 0.7); border-color: rgba(180, 140, 100, 0.5); }
+        .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .checkbox-container input { width: 14px; height: 14px; cursor: pointer; accent-color: #88aa55; }
+        .checkbox-container label { font-size: 0.8rem; color: rgba(220, 200, 180, 0.9); cursor: pointer; }
+        .checkbox-label-en { font-size: 0.6rem; color: rgba(160, 130, 100, 0.7); }
+        .info-box { background: rgba(60, 45, 30, 0.4); padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.7rem; color: rgba(180, 150, 120, 0.8); line-height: 1.6; }
+        .info-box strong { color: rgba(220, 190, 150, 0.9); }
+        .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(160, 130, 100, 0.6); z-index: 10; letter-spacing: 0.1em; }
+        footer { position: fixed; bottom: 20px; right: 20px; color: rgba(120, 100, 80, 0.5); font-size: 0.7rem; z-index: 10; }
+        @media (max-width: 768px) {
+            .controls { right: 10px; top: auto; bottom: 80px; transform: none; width: calc(100% - 20px); max-height: 45vh; overflow-y: auto; padding: 15px; }
+            .controls.hidden { transform: translateY(120%); opacity: 0; }
+            .controls.mobile-default-hidden { transform: translateY(120%); opacity: 0; pointer-events: none; }
+            .overlay { padding: 12px; }
+            .overlay .main-title { font-size: 1.2rem; letter-spacing: 0.15em; }
+            .overlay h2 { font-size: 0.95rem; }
+            .overlay .story { font-size: 0.7rem; margin-top: 10px; }
+            .hint { display: none; }
+            .toggle-btn, .fullscreen-btn { width: 44px; height: 44px; font-size: 1.2rem; }
+            .toggle-btn { bottom: 70px; right: 15px; }
+            .fullscreen-btn { bottom: 15px; right: 15px; }
+            footer { left: 15px; right: auto; font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="overlay">
+        <h1 class="main-title">いわての森が育む、いのちの循環<span class="title-en">The Cycle of Life Nurtured by Iwate's Forests</span></h1>
+        <h2>Stage 5: 木材 — 刻まれる記憶<span class="title-en">Timber — Carved Memories</span></h2>
+        <p class="subtitle">森の循環3D — Forest Circulation 3D</p>
+        <p class="story">
+            年輪に刻まれた時間の記憶。一本の木材には、風雨を耐えた歳月と、大地から受け取った恵みが宿る。<br>
+            <span class="story-en">Memories of time carved in tree rings. Each piece of timber holds years of weathering storms and blessings received from the earth.</span>
+        </p>
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <h3>形状 / Shape</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">丸太の数<span class="slider-label-en">Log Count</span></span><span class="slider-value" id="logCountValue">8</span></div>
+                <input type="range" id="logCount" min="3" max="15" value="8">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">年輪の密度<span class="slider-label-en">Ring Density</span></span><span class="slider-value" id="ringDensityValue">12</span></div>
+                <input type="range" id="ringDensity" min="6" max="24" value="12">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">木粉の量<span class="slider-label-en">Sawdust Amount</span></span><span class="slider-value" id="sawdustCountValue">200</span></div>
+                <input type="range" id="sawdustCount" min="50" max="400" value="200">
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>アニメーション / Animation</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">回転速度<span class="slider-label-en">Rotation Speed</span></span><span class="slider-value" id="rotationSpeedValue">0.3</span></div>
+                <input type="range" id="rotationSpeed" min="0" max="1" step="0.05" value="0.3">
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="autoRotate" checked>
+                <label for="autoRotate">自動回転 <span class="checkbox-label-en">Auto Rotate</span></label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showCrossSection" checked>
+                <label for="showCrossSection">断面を表示 <span class="checkbox-label-en">Show Cross-section</span></label>
+            </div>
+        </div>
+        <div class="button-group">
+            <button class="btn btn-secondary" id="reset">リセット / Reset</button>
+            <button class="btn btn-secondary" id="downloadPNG">PNG保存 / Save</button>
+        </div>
+        <div class="info-box">
+            <strong>🪵 Stage 5 の特徴</strong><br>
+            • 年輪が刻まれた丸太<br>
+            • 木目のテクスチャ<br>
+            • 漂う木粉パーティクル<br>
+            • 製材所の静かな空気感
+        </div>
+    </div>
+    <p class="hint">マウスドラッグで視点を変更 / ホイールでズーム</p>
+    <button class="toggle-btn" id="toggleControls" title="設定パネル">⚙️</button>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全画面表示">⛶</button>
+    <div class="fullscreen-hint">タップで戻る / Tap to exit</div>
+    <footer>© ima Design Lab | Matsumori Woodworks — Iwate Forest Circulation Project — Three.js (MIT License)</footer>
+
+    <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let logs = [], sawdustParticles, ground, crossSectionHighlight;
+        const clock = new THREE.Clock();
+
+        let params = { logCount: 8, ringDensity: 12, sawdustCount: 200, rotationSpeed: 0.3, autoRotate: true, showCrossSection: true };
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x12100a);
+            scene.fog = new THREE.FogExp2(0x12100a, 0.04);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(8, 6, 10);
+            camera.lookAt(0, 1.5, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = params.autoRotate;
+            controls.autoRotateSpeed = 0.4;
+            controls.target.set(0, 1.5, 0);
+
+            createGround();
+            createLogs();
+            createSawdust();
+            setupLighting();
+            setupEventListeners();
+            setupUIControls();
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function setupLighting() {
+            scene.add(new THREE.AmbientLight(0x4a3a2a, 0.6));
+            const mainLight = new THREE.DirectionalLight(0xfff8e8, 0.8);
+            mainLight.position.set(8, 15, 5);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+            const warmLight = new THREE.PointLight(0xffaa66, 0.5, 20);
+            warmLight.position.set(-3, 4, -3);
+            scene.add(warmLight);
+            const rimLight = new THREE.PointLight(0xeedd99, 0.3, 15);
+            rimLight.position.set(5, 2, -5);
+            scene.add(rimLight);
+        }
+
+        function createGround() {
+            if (ground) { scene.remove(ground); ground.geometry.dispose(); ground.material.dispose(); }
+            const geo = new THREE.PlaneGeometry(30, 30);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x2a2218,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            ground = new THREE.Mesh(geo, mat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.01;
+            scene.add(ground);
+        }
+
+        function createTreeRingTexture(ringCount) {
+            const size = 256;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            const centerX = size / 2;
+            const centerY = size / 2;
+
+            // Base wood color
+            ctx.fillStyle = '#c4a574';
+            ctx.fillRect(0, 0, size, size);
+
+            // Draw rings from outside to center
+            for (let i = ringCount; i > 0; i--) {
+                const radius = (i / ringCount) * (size / 2 - 5);
+                const ringWidth = (size / 2) / ringCount;
+
+                // Alternate between light and dark rings
+                const brightness = i % 2 === 0 ? 0.85 : 1.0;
+                const baseColor = { r: 196, g: 165, b: 116 };
+
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgb(${Math.floor(baseColor.r * brightness)}, ${Math.floor(baseColor.g * brightness)}, ${Math.floor(baseColor.b * brightness)})`;
+                ctx.lineWidth = ringWidth * 0.7;
+                ctx.stroke();
+            }
+
+            // Add center heartwood
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#8b7355';
+            ctx.fill();
+
+            // Add some grain variation
+            for (let i = 0; i < 20; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const length = 20 + Math.random() * 80;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX + Math.cos(angle) * length, centerY + Math.sin(angle) * length);
+                ctx.strokeStyle = 'rgba(100, 80, 60, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createBarkTexture() {
+            const size = 256;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Base bark color
+            ctx.fillStyle = '#4a3a2a';
+            ctx.fillRect(0, 0, size, size);
+
+            // Add vertical bark lines
+            for (let i = 0; i < 30; i++) {
+                const x = Math.random() * size;
+                const width = 2 + Math.random() * 6;
+                const darkness = 0.7 + Math.random() * 0.3;
+
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                for (let y = 0; y < size; y += 10) {
+                    ctx.lineTo(x + (Math.random() - 0.5) * 8, y);
+                }
+                ctx.strokeStyle = `rgba(${Math.floor(74 * darkness)}, ${Math.floor(58 * darkness)}, ${Math.floor(42 * darkness)}, 0.8)`;
+                ctx.lineWidth = width;
+                ctx.stroke();
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function createLog(position, rotation, length, radius) {
+            const group = new THREE.Group();
+
+            // Bark texture for the cylinder
+            const barkTexture = createBarkTexture();
+            barkTexture.wrapS = THREE.RepeatWrapping;
+            barkTexture.wrapT = THREE.RepeatWrapping;
+            barkTexture.repeat.set(2, 1);
+
+            // Main log cylinder
+            const logGeo = new THREE.CylinderGeometry(radius, radius * 1.02, length, 24);
+            const logMat = new THREE.MeshStandardMaterial({
+                map: barkTexture,
+                roughness: 0.85,
+                metalness: 0.05
+            });
+            const logMesh = new THREE.Mesh(logGeo, logMat);
+            group.add(logMesh);
+
+            // Cross-section caps with tree rings
+            const ringTexture = createTreeRingTexture(params.ringDensity);
+            const capGeo = new THREE.CircleGeometry(radius, 32);
+            const capMat = new THREE.MeshStandardMaterial({
+                map: ringTexture,
+                roughness: 0.6,
+                metalness: 0.05
+            });
+
+            // Top cap
+            const topCap = new THREE.Mesh(capGeo, capMat);
+            topCap.position.y = length / 2;
+            topCap.rotation.x = -Math.PI / 2;
+            group.add(topCap);
+
+            // Bottom cap
+            const bottomCap = new THREE.Mesh(capGeo.clone(), capMat.clone());
+            bottomCap.position.y = -length / 2;
+            bottomCap.rotation.x = Math.PI / 2;
+            group.add(bottomCap);
+
+            group.position.copy(position);
+            group.rotation.set(rotation.x, rotation.y, rotation.z);
+
+            return { group, topCap, bottomCap };
+        }
+
+        function createLogs() {
+            logs.forEach(log => {
+                scene.remove(log.group);
+                log.group.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) {
+                        if (obj.material.map) obj.material.map.dispose();
+                        obj.material.dispose();
+                    }
+                });
+            });
+            logs = [];
+
+            // Create stacked logs arrangement
+            const arrangements = [
+                // Main horizontal stack
+                { pos: new THREE.Vector3(0, 0.4, 0), rot: new THREE.Euler(Math.PI / 2, 0, 0), len: 4, rad: 0.35 },
+                { pos: new THREE.Vector3(0.8, 0.4, 0), rot: new THREE.Euler(Math.PI / 2, 0, 0.1), len: 3.5, rad: 0.3 },
+                { pos: new THREE.Vector3(-0.7, 0.4, 0), rot: new THREE.Euler(Math.PI / 2, 0, -0.05), len: 3.8, rad: 0.32 },
+                // Second layer
+                { pos: new THREE.Vector3(0.3, 1.05, 0), rot: new THREE.Euler(Math.PI / 2, 0, 0.05), len: 3.6, rad: 0.28 },
+                { pos: new THREE.Vector3(-0.4, 1.0, 0), rot: new THREE.Euler(Math.PI / 2, 0, -0.08), len: 3.4, rad: 0.26 },
+                // Leaning logs
+                { pos: new THREE.Vector3(2.5, 0.8, -1), rot: new THREE.Euler(0.3, 0.5, Math.PI / 2), len: 3, rad: 0.25 },
+                { pos: new THREE.Vector3(-2.3, 0.7, -0.8), rot: new THREE.Euler(0.4, -0.3, Math.PI / 2), len: 2.8, rad: 0.24 },
+                // Standing log (cross-section visible)
+                { pos: new THREE.Vector3(-3, 0.9, 1.5), rot: new THREE.Euler(0, 0.2, 0), len: 1.8, rad: 0.38 },
+            ];
+
+            const count = Math.min(params.logCount, arrangements.length);
+            for (let i = 0; i < count; i++) {
+                const arr = arrangements[i];
+                const log = createLog(arr.pos, arr.rot, arr.len, arr.rad);
+                scene.add(log.group);
+                logs.push(log);
+            }
+        }
+
+        function createSawdust() {
+            if (sawdustParticles) {
+                scene.remove(sawdustParticles);
+                sawdustParticles.geometry.dispose();
+                sawdustParticles.material.dispose();
+            }
+
+            const count = params.sawdustCount;
+            const positions = new Float32Array(count * 3);
+            const sizes = new Float32Array(count);
+            const colors = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                // Concentrate sawdust around the logs
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 4;
+                positions[i * 3] = Math.cos(angle) * radius;
+                positions[i * 3 + 1] = Math.random() * 3 + 0.1;
+                positions[i * 3 + 2] = Math.sin(angle) * radius + (Math.random() - 0.5) * 2;
+
+                sizes[i] = 0.02 + Math.random() * 0.04;
+
+                // Warm wood colors
+                const brightness = 0.6 + Math.random() * 0.4;
+                colors[i * 3] = 0.85 * brightness;
+                colors[i * 3 + 1] = 0.7 * brightness;
+                colors[i * 3 + 2] = 0.45 * brightness;
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const mat = new THREE.PointsMaterial({
+                size: 0.04,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.7,
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
+            });
+
+            sawdustParticles = new THREE.Points(geo, mat);
+            scene.add(sawdustParticles);
+        }
+
+        function setupUIControls() {
+            const controlsPanel = document.querySelector('.controls');
+            const toggleBtn = document.getElementById('toggleControls');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                controlsPanel.classList.add('mobile-default-hidden');
+            }
+
+            toggleBtn.addEventListener('click', () => {
+                controlsPanel.classList.remove('mobile-default-hidden');
+                controlsPanel.classList.toggle('hidden');
+                toggleBtn.classList.toggle('active');
+            });
+
+            fullscreenBtn.addEventListener('click', () => {
+                document.body.classList.add('fullscreen-mode');
+            });
+
+            document.getElementById('canvas-container').addEventListener('click', () => {
+                if (document.body.classList.contains('fullscreen-mode')) {
+                    document.body.classList.remove('fullscreen-mode');
+                }
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('logCount').addEventListener('input', e => {
+                params.logCount = parseInt(e.target.value);
+                document.getElementById('logCountValue').textContent = params.logCount;
+                createLogs();
+            });
+
+            document.getElementById('ringDensity').addEventListener('input', e => {
+                params.ringDensity = parseInt(e.target.value);
+                document.getElementById('ringDensityValue').textContent = params.ringDensity;
+                createLogs();
+            });
+
+            document.getElementById('sawdustCount').addEventListener('input', e => {
+                params.sawdustCount = parseInt(e.target.value);
+                document.getElementById('sawdustCountValue').textContent = params.sawdustCount;
+                createSawdust();
+            });
+
+            document.getElementById('rotationSpeed').addEventListener('input', e => {
+                params.rotationSpeed = parseFloat(e.target.value);
+                document.getElementById('rotationSpeedValue').textContent = params.rotationSpeed.toFixed(2);
+                controls.autoRotateSpeed = params.rotationSpeed * 1.5;
+            });
+
+            document.getElementById('autoRotate').addEventListener('change', e => {
+                params.autoRotate = e.target.checked;
+                controls.autoRotate = params.autoRotate;
+            });
+
+            document.getElementById('showCrossSection').addEventListener('change', e => {
+                params.showCrossSection = e.target.checked;
+                logs.forEach(log => {
+                    if (log.topCap) log.topCap.visible = params.showCrossSection;
+                    if (log.bottomCap) log.bottomCap.visible = params.showCrossSection;
+                });
+            });
+
+            document.getElementById('reset').addEventListener('click', () => {
+                params = { logCount: 8, ringDensity: 12, sawdustCount: 200, rotationSpeed: 0.3, autoRotate: true, showCrossSection: true };
+                document.getElementById('logCount').value = params.logCount;
+                document.getElementById('logCountValue').textContent = params.logCount;
+                document.getElementById('ringDensity').value = params.ringDensity;
+                document.getElementById('ringDensityValue').textContent = params.ringDensity;
+                document.getElementById('sawdustCount').value = params.sawdustCount;
+                document.getElementById('sawdustCountValue').textContent = params.sawdustCount;
+                document.getElementById('rotationSpeed').value = params.rotationSpeed;
+                document.getElementById('rotationSpeedValue').textContent = params.rotationSpeed.toFixed(2);
+                document.getElementById('autoRotate').checked = params.autoRotate;
+                document.getElementById('showCrossSection').checked = params.showCrossSection;
+                controls.autoRotate = params.autoRotate;
+                controls.autoRotateSpeed = params.rotationSpeed * 1.5;
+                createLogs();
+                createSawdust();
+            });
+
+            document.getElementById('downloadPNG').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const link = document.createElement('a');
+                link.download = 'iwate_forest_stage5_timber.png';
+                link.href = renderer.domElement.toDataURL('image/png');
+                link.click();
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') document.body.classList.remove('fullscreen-mode');
+                if (e.key === 'r' || e.key === 'R') document.getElementById('reset').click();
+                if (e.key === 's' || e.key === 'S') document.getElementById('downloadPNG').click();
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            // Animate sawdust particles - gentle floating
+            if (sawdustParticles) {
+                const positions = sawdustParticles.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length / 3; i++) {
+                    // Gentle vertical drift
+                    positions[i * 3 + 1] += Math.sin(time * 0.5 + i) * 0.001;
+                    // Slight horizontal drift
+                    positions[i * 3] += Math.sin(time * 0.3 + i * 0.5) * 0.0005;
+                    positions[i * 3 + 2] += Math.cos(time * 0.4 + i * 0.3) * 0.0005;
+
+                    // Reset particles that drift too high
+                    if (positions[i * 3 + 1] > 4) {
+                        positions[i * 3 + 1] = 0.1;
+                    }
+                }
+                sawdustParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>

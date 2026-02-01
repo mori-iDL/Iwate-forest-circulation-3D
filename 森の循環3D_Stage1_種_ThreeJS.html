@@ -558,7 +558,7 @@
     <div class="fullscreen-hint">タップで戻る / Tap to exit</div>
 
     <footer>
-        © ima Design Lab｜松森木工所 — Iwate Forest Circulation Project — Three.js (MIT License)
+        © ima Design Lab | Matsumori Woodworks — Iwate Forest Circulation Project — Three.js (MIT License)
     </footer>
 
     <!-- Three.js と OrbitControls を ES Module として読み込み -->
@@ -1035,6 +1035,19 @@
                 link.download = `seed-3d-threejs-${Date.now()}.png`;
                 link.href = renderer.domElement.toDataURL('image/png');
                 link.click();
+            });
+
+            // キーボードショートカット
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.body.classList.remove('fullscreen-mode');
+                }
+                if (e.key === 'r' || e.key === 'R') {
+                    document.getElementById('reset').click();
+                }
+                if (e.key === 's' || e.key === 'S') {
+                    document.getElementById('downloadPNG').click();
+                }
             });
         }
 

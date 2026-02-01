@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>森の循環3D — Stage 4: 成長 - 森を編む（Three.js版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; background: #0a120a; min-height: 100vh; overflow: hidden; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; padding: 20px; z-index: 10; pointer-events: none; text-align: center; }
+        .overlay .main-title { font-size: 1.6rem; font-weight: 400; color: rgba(235, 245, 225, 0.98); letter-spacing: 0.25em; text-shadow: 0 0 25px rgba(80, 140, 60, 0.5); margin-bottom: 15px; }
+        .overlay .main-title .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(150, 180, 130, 0.65); letter-spacing: 0.12em; margin-top: 6px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay h2 { font-size: 1.2rem; font-weight: 300; color: rgba(235, 245, 225, 0.9); letter-spacing: 0.2em; text-shadow: 0 0 20px rgba(80, 140, 60, 0.4); }
+        .overlay h2 .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(150, 180, 130, 0.7); letter-spacing: 0.15em; margin-top: 5px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay .subtitle { font-size: 0.8rem; color: rgba(120, 160, 110, 0.8); margin-top: 8px; letter-spacing: 0.15em; }
+        .overlay .story { font-size: 0.85rem; color: rgba(195, 210, 185, 0.75); margin-top: 15px; line-height: 1.8; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .overlay .story .story-en { display: block; font-size: 0.75rem; color: rgba(130, 160, 120, 0.6); margin-top: 8px; font-family: 'Helvetica Neue', Arial, sans-serif; font-style: italic; }
+        .controls { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(10, 18, 10, 0.88); border-radius: 16px; padding: 25px; width: 280px; z-index: 100; border: 1px solid rgba(60, 120, 60, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); transition: transform 0.3s ease, opacity 0.3s ease; }
+        .controls.hidden { transform: translateY(-50%) translateX(120%); opacity: 0; pointer-events: none; }
+        .toggle-btn { position: fixed; right: 20px; bottom: 80px; width: 50px; height: 50px; border-radius: 50%; background: rgba(10, 18, 10, 0.9); border: 1px solid rgba(60, 120, 60, 0.3); color: rgba(180, 200, 170, 0.9); font-size: 1.4rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .toggle-btn:hover { background: rgba(20, 40, 25, 0.95); transform: scale(1.1); }
+        .toggle-btn.active { background: rgba(60, 120, 60, 0.4); }
+        .fullscreen-btn { position: fixed; right: 20px; bottom: 20px; width: 50px; height: 50px; border-radius: 50%; background: rgba(10, 18, 10, 0.9); border: 1px solid rgba(60, 120, 60, 0.3); color: rgba(180, 200, 170, 0.9); font-size: 1.2rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .fullscreen-btn:hover { background: rgba(20, 40, 25, 0.95); transform: scale(1.1); }
+        body.fullscreen-mode .overlay, body.fullscreen-mode .controls, body.fullscreen-mode .toggle-btn, body.fullscreen-mode .fullscreen-btn, body.fullscreen-mode .hint, body.fullscreen-mode footer { opacity: 0; pointer-events: none; }
+        .fullscreen-hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(180, 200, 170, 0.8); font-size: 0.9rem; z-index: 200; opacity: 0; pointer-events: none; text-align: center; }
+        body.fullscreen-mode .fullscreen-hint { animation: fadeInOut 2s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+        .control-group { margin-bottom: 20px; }
+        .control-group h3 { font-size: 0.65rem; font-weight: 400; color: rgba(120, 160, 140, 0.8); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+        .slider-container { margin-bottom: 14px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .slider-label { font-size: 0.8rem; color: rgba(180, 200, 190, 0.9); }
+        .slider-label-en { font-size: 0.6rem; color: rgba(100, 140, 120, 0.7); display: block; }
+        .slider-value { font-size: 0.75rem; color: rgba(130, 180, 100, 0.9); font-weight: 500; }
+        input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: rgba(40, 70, 50, 0.5); outline: none; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, #689f38, #558b2f); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 10px rgba(90, 150, 70, 0.5); }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 20px rgba(90, 150, 70, 0.8); }
+        .button-group { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+        .btn { padding: 10px 14px; border: none; border-radius: 8px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+        .btn-secondary { background: rgba(40, 70, 50, 0.6); color: rgba(180, 200, 190, 0.9); border: 1px solid rgba(80, 130, 100, 0.3); }
+        .btn-secondary:hover { background: rgba(60, 100, 70, 0.7); border-color: rgba(100, 160, 120, 0.5); }
+        .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .checkbox-container input { width: 14px; height: 14px; cursor: pointer; accent-color: #689f38; }
+        .checkbox-container label { font-size: 0.8rem; color: rgba(180, 200, 190, 0.9); cursor: pointer; }
+        .checkbox-label-en { font-size: 0.6rem; color: rgba(100, 140, 120, 0.7); }
+        .info-box { background: rgba(30, 55, 40, 0.4); padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.7rem; color: rgba(130, 160, 140, 0.8); line-height: 1.6; }
+        .info-box strong { color: rgba(160, 200, 160, 0.9); }
+        .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(120, 160, 140, 0.6); z-index: 10; letter-spacing: 0.1em; }
+        footer { position: fixed; bottom: 20px; right: 20px; color: rgba(80, 120, 100, 0.5); font-size: 0.7rem; z-index: 10; }
+        @media (max-width: 768px) {
+            .controls { right: 10px; top: auto; bottom: 80px; transform: none; width: calc(100% - 20px); max-height: 45vh; overflow-y: auto; padding: 15px; }
+            .controls.hidden { transform: translateY(120%); opacity: 0; }
+            .controls.mobile-default-hidden { transform: translateY(120%); opacity: 0; pointer-events: none; }
+            .overlay { padding: 12px; }
+            .overlay .main-title { font-size: 1.2rem; letter-spacing: 0.15em; }
+            .overlay h2 { font-size: 0.95rem; }
+            .overlay .story { font-size: 0.7rem; margin-top: 10px; }
+            .hint { display: none; }
+            .toggle-btn, .fullscreen-btn { width: 44px; height: 44px; font-size: 1.2rem; }
+            .toggle-btn { bottom: 70px; right: 15px; }
+            .fullscreen-btn { bottom: 15px; right: 15px; }
+            footer { left: 15px; right: auto; font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="overlay">
+        <h1 class="main-title">いわての森が育む、いのちの循環<span class="title-en">The Cycle of Life Nurtured by Iwate's Forests</span></h1>
+        <h2>Stage 4: 成長 — 森を編む<span class="title-en">Growth — Weaving the Forest</span></h2>
+        <p class="subtitle">森の循環3D — Forest Circulation 3D</p>
+        <p class="story">
+            大地の下で根が絡み合い、見えない糸で森全体がつながる。木々は競い合いながらも、共に生きる知恵を紡ぐ。<br>
+            <span class="story-en">Roots intertwine beneath the earth, connecting the entire forest with invisible threads. Trees compete yet weave together the wisdom of coexistence.</span>
+        </p>
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <h3>形状 / Shape</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">樹木の数<span class="slider-label-en">Tree Count</span></span><span class="slider-value" id="treeCountValue">15</span></div>
+                <input type="range" id="treeCount" min="5" max="30" value="15">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">根のネットワーク<span class="slider-label-en">Root Network</span></span><span class="slider-value" id="networkDensityValue">50</span></div>
+                <input type="range" id="networkDensity" min="20" max="100" value="50">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">森の粒子<span class="slider-label-en">Forest Particles</span></span><span class="slider-value" id="particleCountValue">300</span></div>
+                <input type="range" id="particleCount" min="100" max="600" value="300">
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>アニメーション / Animation</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">生命の流れ<span class="slider-label-en">Life Flow</span></span><span class="slider-value" id="flowSpeedValue">0.5</span></div>
+                <input type="range" id="flowSpeed" min="0.1" max="1" step="0.05" value="0.5">
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="autoRotate" checked>
+                <label for="autoRotate">自動回転 <span class="checkbox-label-en">Auto Rotate</span></label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showNetwork" checked>
+                <label for="showNetwork">根のネットワーク表示 <span class="checkbox-label-en">Show Network</span></label>
+            </div>
+        </div>
+        <div class="button-group">
+            <button class="btn btn-secondary" id="reset">リセット / Reset</button>
+            <button class="btn btn-secondary" id="downloadPNG">PNG保存 / Save</button>
+        </div>
+        <div class="info-box">
+            <strong>🌲 Stage 4 の特徴</strong><br>
+            • 成熟した森の樹冠<br>
+            • 地下で繋がる根のネットワーク<br>
+            • 生命エネルギーの流れ<br>
+            • 森林生態系の可視化
+        </div>
+    </div>
+    <p class="hint">マウスドラッグで視点を変更 / ホイールでズーム</p>
+    <button class="toggle-btn" id="toggleControls" title="設定パネル">⚙️</button>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全画面表示">⛶</button>
+    <div class="fullscreen-hint">タップで戻る / Tap to exit</div>
+    <footer>© ima Design Lab | Matsumori Woodworks — Iwate Forest Circulation Project — Three.js (MIT License)</footer>
+
+    <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let trees = [], networkLines, particles, ground;
+        const clock = new THREE.Clock();
+
+        let params = { treeCount: 15, networkDensity: 50, particleCount: 300, flowSpeed: 0.5, autoRotate: true, showNetwork: true };
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a120a);
+            scene.fog = new THREE.FogExp2(0x0a120a, 0.025);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(12, 8, 15);
+            camera.lookAt(0, 3, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = params.autoRotate;
+            controls.autoRotateSpeed = 0.3;
+            controls.target.set(0, 3, 0);
+
+            createGround();
+            createTrees();
+            createNetwork();
+            createParticles();
+            setupLighting();
+            setupEventListeners();
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function setupLighting() {
+            scene.add(new THREE.AmbientLight(0x1a3a2a, 0.5));
+            const sun = new THREE.DirectionalLight(0xffffee, 0.6);
+            sun.position.set(10, 30, 10);
+            scene.add(sun);
+            const fill = new THREE.PointLight(0x66aa66, 0.4, 30);
+            fill.position.set(0, 5, 0);
+            scene.add(fill);
+        }
+
+        function createGround() {
+            if (ground) { scene.remove(ground); ground.geometry.dispose(); ground.material.dispose(); }
+            const geo = new THREE.CircleGeometry(20, 64);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x1a2a1a, roughness: 0.95 });
+            ground = new THREE.Mesh(geo, mat);
+            ground.rotation.x = -Math.PI / 2;
+            scene.add(ground);
+        }
+
+        function createTrees() {
+            trees.forEach(t => { scene.remove(t.group); t.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); });
+            trees = [];
+
+            for (let i = 0; i < params.treeCount; i++) {
+                const angle = (i / params.treeCount) * Math.PI * 2 + Math.random() * 0.5;
+                const radius = 3 + Math.random() * 10;
+                const pos = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+                const tree = createTree(pos);
+                trees.push(tree);
+                scene.add(tree.group);
+            }
+        }
+
+        function createTree(position) {
+            const group = new THREE.Group();
+            group.position.copy(position);
+
+            const height = 5 + Math.random() * 4;
+            const trunkGeo = new THREE.CylinderGeometry(0.15, 0.3, height, 12);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.9 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = height / 2;
+            group.add(trunk);
+
+            for (let i = 0; i < 3; i++) {
+                const canopySize = 1.5 + Math.random() * 1.5;
+                const canopyGeo = new THREE.SphereGeometry(canopySize, 16, 16);
+                const canopyMat = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(0.28 + Math.random() * 0.08, 0.5, 0.25 + Math.random() * 0.15),
+                    roughness: 0.8
+                });
+                const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+                canopy.position.y = height - 1 + Math.random() * 2;
+                canopy.position.x = (Math.random() - 0.5) * 2;
+                canopy.position.z = (Math.random() - 0.5) * 2;
+                group.add(canopy);
+            }
+
+            return { group, position, height };
+        }
+
+        function createNetwork() {
+            if (networkLines) { scene.remove(networkLines); networkLines.geometry.dispose(); networkLines.material.dispose(); }
+            if (!params.showNetwork || trees.length < 2) return;
+
+            const positions = [];
+            const colors = [];
+            const connections = Math.floor(params.networkDensity * trees.length / 10);
+
+            for (let i = 0; i < connections; i++) {
+                const t1 = trees[Math.floor(Math.random() * trees.length)];
+                const t2 = trees[Math.floor(Math.random() * trees.length)];
+                if (t1 === t2) continue;
+
+                const start = t1.position.clone();
+                const end = t2.position.clone();
+                start.y = -0.5;
+                end.y = -0.5;
+
+                const mid = start.clone().lerp(end, 0.5);
+                mid.y = -1 - Math.random() * 2;
+
+                for (let t = 0; t < 1; t += 0.1) {
+                    const p1 = new THREE.Vector3().lerpVectors(start, mid, t).lerp(new THREE.Vector3().lerpVectors(mid, end, t), t);
+                    const p2 = new THREE.Vector3().lerpVectors(start, mid, t + 0.1).lerp(new THREE.Vector3().lerpVectors(mid, end, t + 0.1), t + 0.1);
+                    positions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                    const c = new THREE.Color().setHSL(0.08 + Math.random() * 0.1, 0.6, 0.3);
+                    colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
+                }
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending });
+            networkLines = new THREE.LineSegments(geo, mat);
+            scene.add(networkLines);
+        }
+
+        function createParticles() {
+            if (particles) { scene.remove(particles); particles.geometry.dispose(); particles.material.dispose(); }
+
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(params.particleCount * 3);
+            const col = new Float32Array(params.particleCount * 3);
+
+            for (let i = 0; i < params.particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.random() * 15;
+                pos[i * 3] = Math.cos(angle) * r;
+                pos[i * 3 + 1] = Math.random() * 12;
+                pos[i * 3 + 2] = Math.sin(angle) * r;
+
+                const c = new THREE.Color().setHSL(0.25 + Math.random() * 0.15, 0.5, 0.5 + Math.random() * 0.3);
+                col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+            const mat = new THREE.PointsMaterial({ size: 0.08, vertexColors: true, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending });
+            particles = new THREE.Points(geo, mat);
+            scene.add(particles);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            if (particles) {
+                const pos = particles.geometry.attributes.position.array;
+                for (let i = 0; i < params.particleCount; i++) {
+                    pos[i * 3 + 1] += Math.sin(time * params.flowSpeed + i) * 0.002;
+                    if (pos[i * 3 + 1] > 12) pos[i * 3 + 1] = 0;
+                    if (pos[i * 3 + 1] < 0) pos[i * 3 + 1] = 12;
+                }
+                particles.geometry.attributes.position.needsUpdate = true;
+                particles.rotation.y += 0.0005;
+            }
+
+            if (networkLines && params.showNetwork) {
+                networkLines.material.opacity = 0.4 + Math.sin(time * params.flowSpeed) * 0.2;
+            }
+
+            controls.autoRotate = params.autoRotate;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function setupUIControls() {
+            const panel = document.querySelector('.controls');
+            const toggle = document.getElementById('toggleControls');
+            const fs = document.getElementById('fullscreenBtn');
+            if (window.innerWidth <= 768) panel.classList.add('mobile-default-hidden');
+            toggle.addEventListener('click', () => { panel.classList.remove('mobile-default-hidden'); panel.classList.toggle('hidden'); toggle.classList.toggle('active'); });
+            fs.addEventListener('click', () => document.body.classList.add('fullscreen-mode'));
+            document.getElementById('canvas-container').addEventListener('click', () => { if (document.body.classList.contains('fullscreen-mode')) document.body.classList.remove('fullscreen-mode'); });
+        }
+
+        function setupEventListeners() {
+            setupUIControls();
+            const sliders = [{ id: 'treeCount', fn: () => { createTrees(); createNetwork(); } }, { id: 'networkDensity', fn: createNetwork }, { id: 'particleCount', fn: createParticles }, { id: 'flowSpeed', fn: () => {} }];
+            sliders.forEach(({ id, fn }) => {
+                const el = document.getElementById(id);
+                el.addEventListener('input', () => { document.getElementById(id + 'Value').textContent = el.value; params[id] = parseFloat(el.value); fn(); });
+            });
+            document.getElementById('autoRotate').addEventListener('change', e => params.autoRotate = e.target.checked);
+            document.getElementById('showNetwork').addEventListener('change', e => { params.showNetwork = e.target.checked; createNetwork(); });
+            document.getElementById('reset').addEventListener('click', () => {
+                params = { treeCount: 15, networkDensity: 50, particleCount: 300, flowSpeed: 0.5, autoRotate: true, showNetwork: true };
+                ['treeCount', 'networkDensity', 'particleCount', 'flowSpeed'].forEach(k => { document.getElementById(k).value = params[k]; document.getElementById(k + 'Value').textContent = params[k]; });
+                document.getElementById('autoRotate').checked = true;
+                document.getElementById('showNetwork').checked = true;
+                createTrees(); createNetwork(); createParticles();
+                camera.position.set(12, 8, 15); controls.target.set(0, 3, 0); controls.reset();
+            });
+            document.getElementById('downloadPNG').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const a = document.createElement('a'); a.download = `forest-growth-stage4-${Date.now()}.png`; a.href = renderer.domElement.toDataURL('image/png'); a.click();
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') document.body.classList.remove('fullscreen-mode');
+                if (e.key === 'r' || e.key === 'R') document.getElementById('reset').click();
+                if (e.key === 's' || e.key === 'S') document.getElementById('downloadPNG').click();
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

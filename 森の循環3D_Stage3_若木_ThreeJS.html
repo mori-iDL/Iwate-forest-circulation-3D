@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>森の循環3D — Stage 3: 若木 - 風に揺れる（Three.js版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+            background: #0a1510;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; padding: 20px;
+            z-index: 10; pointer-events: none; text-align: center;
+        }
+        .overlay .main-title {
+            font-size: 1.6rem; font-weight: 400; color: rgba(240, 245, 230, 0.98);
+            letter-spacing: 0.25em; text-shadow: 0 0 25px rgba(100, 160, 80, 0.5); margin-bottom: 15px;
+        }
+        .overlay .main-title .title-en {
+            display: block; font-size: 0.65rem; font-weight: 300; color: rgba(160, 190, 140, 0.65);
+            letter-spacing: 0.12em; margin-top: 6px; font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        .overlay h2 {
+            font-size: 1.2rem; font-weight: 300; color: rgba(240, 245, 230, 0.9);
+            letter-spacing: 0.2em; text-shadow: 0 0 20px rgba(100, 160, 80, 0.4);
+        }
+        .overlay h2 .title-en {
+            display: block; font-size: 0.65rem; font-weight: 300; color: rgba(160, 190, 140, 0.7);
+            letter-spacing: 0.15em; margin-top: 5px; font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        .overlay .subtitle { font-size: 0.8rem; color: rgba(130, 170, 120, 0.8); margin-top: 8px; letter-spacing: 0.15em; }
+        .overlay .story {
+            font-size: 0.85rem; color: rgba(200, 215, 190, 0.75); margin-top: 15px;
+            line-height: 1.8; max-width: 600px; margin-left: auto; margin-right: auto;
+        }
+        .overlay .story .story-en {
+            display: block; font-size: 0.75rem; color: rgba(140, 170, 130, 0.6);
+            margin-top: 8px; font-family: 'Helvetica Neue', Arial, sans-serif; font-style: italic;
+        }
+        .controls {
+            position: fixed; right: 20px; top: 50%; transform: translateY(-50%);
+            background: rgba(10, 21, 16, 0.88); border-radius: 16px; padding: 25px; width: 280px;
+            z-index: 100; border: 1px solid rgba(70, 130, 70, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .controls.hidden { transform: translateY(-50%) translateX(120%); opacity: 0; pointer-events: none; }
+        .toggle-btn {
+            position: fixed; right: 20px; bottom: 80px; width: 50px; height: 50px; border-radius: 50%;
+            background: rgba(10, 21, 16, 0.9); border: 1px solid rgba(70, 130, 70, 0.3);
+            color: rgba(190, 210, 180, 0.9); font-size: 1.4rem; cursor: pointer; z-index: 101;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+        .toggle-btn:hover { background: rgba(25, 45, 30, 0.95); transform: scale(1.1); }
+        .toggle-btn.active { background: rgba(70, 130, 70, 0.4); }
+        .fullscreen-btn {
+            position: fixed; right: 20px; bottom: 20px; width: 50px; height: 50px; border-radius: 50%;
+            background: rgba(10, 21, 16, 0.9); border: 1px solid rgba(70, 130, 70, 0.3);
+            color: rgba(190, 210, 180, 0.9); font-size: 1.2rem; cursor: pointer; z-index: 101;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+        .fullscreen-btn:hover { background: rgba(25, 45, 30, 0.95); transform: scale(1.1); }
+        body.fullscreen-mode .overlay, body.fullscreen-mode .controls, body.fullscreen-mode .toggle-btn,
+        body.fullscreen-mode .fullscreen-btn, body.fullscreen-mode .hint, body.fullscreen-mode footer {
+            opacity: 0; pointer-events: none;
+        }
+        .fullscreen-hint {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: rgba(190, 210, 180, 0.8); font-size: 0.9rem; z-index: 200;
+            opacity: 0; pointer-events: none; text-align: center;
+        }
+        body.fullscreen-mode .fullscreen-hint { animation: fadeInOut 2s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+        .control-group { margin-bottom: 20px; }
+        .control-group h3 {
+            font-size: 0.65rem; font-weight: 400; color: rgba(130, 170, 150, 0.8);
+            text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px;
+        }
+        .slider-container { margin-bottom: 14px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .slider-label { font-size: 0.8rem; color: rgba(190, 210, 200, 0.9); }
+        .slider-label-en { font-size: 0.6rem; color: rgba(110, 150, 130, 0.7); display: block; }
+        .slider-value { font-size: 0.75rem; color: rgba(140, 190, 110, 0.9); font-weight: 500; }
+        input[type="range"] {
+            width: 100%; height: 4px; border-radius: 2px;
+            background: rgba(50, 80, 60, 0.5); outline: none; -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+            background: linear-gradient(135deg, #7cb342, #558b2f); cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 10px rgba(100, 170, 80, 0.5);
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 20px rgba(100, 170, 80, 0.8); }
+        .button-group { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+        .btn {
+            padding: 10px 14px; border: none; border-radius: 8px; font-size: 0.8rem;
+            cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
+        }
+        .btn-secondary {
+            background: rgba(50, 80, 60, 0.6); color: rgba(190, 210, 200, 0.9);
+            border: 1px solid rgba(90, 140, 110, 0.3);
+        }
+        .btn-secondary:hover { background: rgba(70, 110, 80, 0.7); border-color: rgba(110, 170, 130, 0.5); }
+        .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .checkbox-container input { width: 14px; height: 14px; cursor: pointer; accent-color: #7cb342; }
+        .checkbox-container label { font-size: 0.8rem; color: rgba(190, 210, 200, 0.9); cursor: pointer; }
+        .checkbox-label-en { font-size: 0.6rem; color: rgba(110, 150, 130, 0.7); }
+        .info-box {
+            background: rgba(35, 60, 45, 0.4); padding: 12px; border-radius: 8px; margin-top: 15px;
+            font-size: 0.7rem; color: rgba(140, 170, 150, 0.8); line-height: 1.6;
+        }
+        .info-box strong { color: rgba(170, 210, 170, 0.9); }
+        .hint {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            font-size: 0.75rem; color: rgba(130, 170, 150, 0.6); z-index: 10; letter-spacing: 0.1em;
+        }
+        footer { position: fixed; bottom: 20px; right: 20px; color: rgba(90, 130, 110, 0.5); font-size: 0.7rem; z-index: 10; }
+        @media (max-width: 768px) {
+            .controls { right: 10px; top: auto; bottom: 80px; transform: none; width: calc(100% - 20px); max-height: 45vh; overflow-y: auto; padding: 15px; }
+            .controls.hidden { transform: translateY(120%); opacity: 0; }
+            .controls.mobile-default-hidden { transform: translateY(120%); opacity: 0; pointer-events: none; }
+            .overlay { padding: 12px; }
+            .overlay .main-title { font-size: 1.2rem; letter-spacing: 0.15em; }
+            .overlay h2 { font-size: 0.95rem; }
+            .overlay .story { font-size: 0.7rem; margin-top: 10px; }
+            .hint { display: none; }
+            .toggle-btn, .fullscreen-btn { width: 44px; height: 44px; font-size: 1.2rem; }
+            .toggle-btn { bottom: 70px; right: 15px; }
+            .fullscreen-btn { bottom: 15px; right: 15px; }
+            footer { left: 15px; right: auto; font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="overlay">
+        <h1 class="main-title">いわての森が育む、いのちの循環<span class="title-en">The Cycle of Life Nurtured by Iwate's Forests</span></h1>
+        <h2>Stage 3: 若木 — 風に揺れる<span class="title-en">Sapling — Swaying in the Wind</span></h2>
+        <p class="subtitle">森の循環3D — Forest Circulation 3D</p>
+        <p class="story">
+            陽光を浴びて伸びゆく若木たち。風が吹き抜けるたび、しなやかに揺れながら、空へと手を伸ばす。<br>
+            <span class="story-en">Young trees growing toward the sunlight. With each gust of wind, they sway gracefully, reaching for the sky.</span>
+        </p>
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <h3>形状 / Shape</h3>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">若木の数<span class="slider-label-en">Tree Count</span></span>
+                    <span class="slider-value" id="treeCountValue">25</span>
+                </div>
+                <input type="range" id="treeCount" min="10" max="50" value="25">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">木の高さ<span class="slider-label-en">Tree Height</span></span>
+                    <span class="slider-value" id="treeHeightValue">4</span>
+                </div>
+                <input type="range" id="treeHeight" min="2" max="8" step="0.5" value="4">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">葉の密度<span class="slider-label-en">Leaf Density</span></span>
+                    <span class="slider-value" id="leafDensityValue">200</span>
+                </div>
+                <input type="range" id="leafDensity" min="50" max="500" value="200">
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>アニメーション / Animation</h3>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">風の強さ<span class="slider-label-en">Wind Strength</span></span>
+                    <span class="slider-value" id="windStrengthValue">0.5</span>
+                </div>
+                <input type="range" id="windStrength" min="0" max="1" step="0.05" value="0.5">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">風の速さ<span class="slider-label-en">Wind Speed</span></span>
+                    <span class="slider-value" id="windSpeedValue">1</span>
+                </div>
+                <input type="range" id="windSpeed" min="0.2" max="2" step="0.1" value="1">
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="autoRotate" checked>
+                <label for="autoRotate">自動回転 <span class="checkbox-label-en">Auto Rotate</span></label>
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>ビジュアル / Visual</h3>
+            <div class="slider-container">
+                <div class="slider-header">
+                    <span class="slider-label">光の強さ<span class="slider-label-en">Light Intensity</span></span>
+                    <span class="slider-value" id="lightIntensityValue">1.0</span>
+                </div>
+                <input type="range" id="lightIntensity" min="0.3" max="2" step="0.1" value="1.0">
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showGround" checked>
+                <label for="showGround">大地を表示 <span class="checkbox-label-en">Show Ground</span></label>
+            </div>
+        </div>
+        <div class="button-group">
+            <button class="btn btn-secondary" id="reset">リセット / Reset</button>
+            <button class="btn btn-secondary" id="downloadPNG">PNG保存 / Save</button>
+        </div>
+        <div class="info-box">
+            <strong>🌳 Stage 3 の特徴</strong><br>
+            • 風に揺れる若木のアニメーション<br>
+            • 枝分かれする樹形の表現<br>
+            • 舞い散る葉のパーティクル<br>
+            • 木漏れ日の光
+        </div>
+    </div>
+    <p class="hint">マウスドラッグで視点を変更 / ホイールでズーム</p>
+    <button class="toggle-btn" id="toggleControls" title="設定パネル">⚙️</button>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全画面表示">⛶</button>
+    <div class="fullscreen-hint">タップで戻る / Tap to exit</div>
+    <footer>© ima Design Lab | Matsumori Woodworks — Iwate Forest Circulation Project — Three.js (MIT License)</footer>
+
+    <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let trees = [];
+        let leaves;
+        let ground;
+        const clock = new THREE.Clock();
+
+        let params = {
+            treeCount: 25,
+            treeHeight: 4,
+            leafDensity: 200,
+            windStrength: 0.5,
+            windSpeed: 1,
+            autoRotate: true,
+            lightIntensity: 1.0,
+            showGround: true
+        };
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a1510);
+            scene.fog = new THREE.FogExp2(0x0a1510, 0.04);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(8, 6, 12);
+            camera.lookAt(0, 2, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = params.autoRotate;
+            controls.autoRotateSpeed = 0.5;
+            controls.target.set(0, 2, 0);
+
+            createGround();
+            createTrees();
+            createLeaves();
+            setupLighting();
+            setupEventListeners();
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function setupLighting() {
+            const ambient = new THREE.AmbientLight(0x2a4a3a, 0.4 * params.lightIntensity);
+            scene.add(ambient);
+
+            const sunLight = new THREE.DirectionalLight(0xffffcc, 0.8 * params.lightIntensity);
+            sunLight.position.set(10, 20, 10);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 1024;
+            sunLight.shadow.mapSize.height = 1024;
+            scene.add(sunLight);
+
+            const fillLight = new THREE.DirectionalLight(0x88ccaa, 0.3 * params.lightIntensity);
+            fillLight.position.set(-5, 5, -5);
+            scene.add(fillLight);
+        }
+
+        function createGround() {
+            if (ground) { scene.remove(ground); ground.geometry.dispose(); ground.material.dispose(); }
+            if (!params.showGround) return;
+
+            const geometry = new THREE.CircleGeometry(15, 64);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x1a2f1a, roughness: 0.9, metalness: 0.1
+            });
+            ground = new THREE.Mesh(geometry, material);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+        }
+
+        function createTrees() {
+            trees.forEach(tree => {
+                scene.remove(tree.group);
+                tree.group.traverse(obj => { if (obj.geometry) obj.geometry.dispose(); if (obj.material) obj.material.dispose(); });
+            });
+            trees = [];
+
+            for (let i = 0; i < params.treeCount; i++) {
+                const tree = createSingleTree();
+                trees.push(tree);
+                scene.add(tree.group);
+            }
+        }
+
+        function createSingleTree() {
+            const group = new THREE.Group();
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 2 + Math.random() * 10;
+            group.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+
+            const height = params.treeHeight * (0.6 + Math.random() * 0.8);
+            const trunkGeo = new THREE.CylinderGeometry(0.08, 0.15, height, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3728, roughness: 0.9 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = height / 2;
+            trunk.castShadow = true;
+            group.add(trunk);
+
+            const branches = [];
+            const branchCount = 3 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < branchCount; i++) {
+                const branchHeight = height * (0.4 + i * 0.15);
+                const branchLength = 0.5 + Math.random() * 1;
+                const branchGeo = new THREE.CylinderGeometry(0.02, 0.04, branchLength, 6);
+                const branch = new THREE.Mesh(branchGeo, trunkMat);
+                branch.position.y = branchHeight;
+                branch.rotation.z = Math.PI / 4 + Math.random() * 0.3;
+                branch.rotation.y = Math.random() * Math.PI * 2;
+                group.add(branch);
+                branches.push(branch);
+
+                const foliageGeo = new THREE.SphereGeometry(0.3 + Math.random() * 0.3, 8, 8);
+                const foliageMat = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(0.25 + Math.random() * 0.1, 0.6, 0.3 + Math.random() * 0.2),
+                    roughness: 0.8
+                });
+                const foliage = new THREE.Mesh(foliageGeo, foliageMat);
+                foliage.position.y = branchHeight + 0.3;
+                foliage.position.x = Math.sin(branch.rotation.y) * branchLength * 0.5;
+                foliage.position.z = Math.cos(branch.rotation.y) * branchLength * 0.5;
+                foliage.castShadow = true;
+                group.add(foliage);
+            }
+
+            const topFoliageGeo = new THREE.SphereGeometry(0.5 + Math.random() * 0.3, 12, 12);
+            const topFoliageMat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(0.28, 0.65, 0.35), roughness: 0.7
+            });
+            const topFoliage = new THREE.Mesh(topFoliageGeo, topFoliageMat);
+            topFoliage.position.y = height + 0.3;
+            topFoliage.castShadow = true;
+            group.add(topFoliage);
+
+            return { group, trunk, branches, height, swayOffset: Math.random() * Math.PI * 2, swaySpeed: 0.8 + Math.random() * 0.4 };
+        }
+
+        function createLeaves() {
+            if (leaves) { scene.remove(leaves); leaves.geometry.dispose(); leaves.material.dispose(); }
+
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(params.leafDensity * 3);
+            const colors = new Float32Array(params.leafDensity * 3);
+            const velocities = [];
+
+            for (let i = 0; i < params.leafDensity; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 20;
+                positions[i * 3 + 1] = Math.random() * 8;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+
+                const color = new THREE.Color().setHSL(0.2 + Math.random() * 0.15, 0.5 + Math.random() * 0.3, 0.4 + Math.random() * 0.3);
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+
+                velocities.push({ x: 0, y: -0.02 - Math.random() * 0.02, z: 0, phase: Math.random() * Math.PI * 2 });
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.08, vertexColors: true, transparent: true, opacity: 0.8,
+                sizeAttenuation: true, blending: THREE.AdditiveBlending
+            });
+
+            leaves = new THREE.Points(geometry, material);
+            leaves.userData.velocities = velocities;
+            scene.add(leaves);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            trees.forEach(tree => {
+                const sway = Math.sin(time * params.windSpeed * tree.swaySpeed + tree.swayOffset) * params.windStrength * 0.1;
+                tree.group.rotation.x = sway;
+                tree.group.rotation.z = Math.cos(time * params.windSpeed * tree.swaySpeed * 0.7 + tree.swayOffset) * params.windStrength * 0.05;
+            });
+
+            if (leaves) {
+                const positions = leaves.geometry.attributes.position.array;
+                const velocities = leaves.userData.velocities;
+                for (let i = 0; i < params.leafDensity; i++) {
+                    const windX = Math.sin(time * params.windSpeed + velocities[i].phase) * params.windStrength * 0.05;
+                    const windZ = Math.cos(time * params.windSpeed * 0.7 + velocities[i].phase) * params.windStrength * 0.03;
+                    positions[i * 3] += windX;
+                    positions[i * 3 + 1] += velocities[i].y;
+                    positions[i * 3 + 2] += windZ;
+
+                    if (positions[i * 3 + 1] < 0) {
+                        positions[i * 3 + 1] = 6 + Math.random() * 2;
+                        positions[i * 3] = (Math.random() - 0.5) * 20;
+                        positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+                    }
+                }
+                leaves.geometry.attributes.position.needsUpdate = true;
+            }
+
+            controls.autoRotate = params.autoRotate;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function setupUIControls() {
+            const controlsPanel = document.querySelector('.controls');
+            const toggleBtn = document.getElementById('toggleControls');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) controlsPanel.classList.add('mobile-default-hidden');
+
+            toggleBtn.addEventListener('click', () => {
+                controlsPanel.classList.remove('mobile-default-hidden');
+                controlsPanel.classList.toggle('hidden');
+                toggleBtn.classList.toggle('active');
+            });
+
+            fullscreenBtn.addEventListener('click', () => document.body.classList.add('fullscreen-mode'));
+            document.getElementById('canvas-container').addEventListener('click', () => {
+                if (document.body.classList.contains('fullscreen-mode')) document.body.classList.remove('fullscreen-mode');
+            });
+        }
+
+        function setupEventListeners() {
+            setupUIControls();
+
+            const sliders = [
+                { id: 'treeCount', recreate: ['trees'] }, { id: 'treeHeight', recreate: ['trees'] },
+                { id: 'leafDensity', recreate: ['leaves'] }, { id: 'windStrength', recreate: [] },
+                { id: 'windSpeed', recreate: [] }, { id: 'lightIntensity', recreate: [] }
+            ];
+
+            sliders.forEach(({ id, recreate }) => {
+                const slider = document.getElementById(id);
+                const valueSpan = document.getElementById(id + 'Value');
+                slider.addEventListener('input', () => {
+                    valueSpan.textContent = slider.value;
+                    params[id] = parseFloat(slider.value);
+                    if (recreate.includes('trees')) createTrees();
+                    if (recreate.includes('leaves')) createLeaves();
+                });
+            });
+
+            document.getElementById('autoRotate').addEventListener('change', e => params.autoRotate = e.target.checked);
+            document.getElementById('showGround').addEventListener('change', e => { params.showGround = e.target.checked; createGround(); });
+
+            document.getElementById('reset').addEventListener('click', () => {
+                params = { treeCount: 25, treeHeight: 4, leafDensity: 200, windStrength: 0.5, windSpeed: 1, autoRotate: true, lightIntensity: 1.0, showGround: true };
+                Object.keys(params).forEach(key => {
+                    const el = document.getElementById(key);
+                    if (el) { el.type === 'checkbox' ? el.checked = params[key] : el.value = params[key]; }
+                    const span = document.getElementById(key + 'Value');
+                    if (span) span.textContent = params[key];
+                });
+                createGround(); createTrees(); createLeaves();
+                camera.position.set(8, 6, 12); controls.target.set(0, 2, 0); controls.reset();
+            });
+
+            document.getElementById('downloadPNG').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const link = document.createElement('a');
+                link.download = `sapling-3d-stage3-${Date.now()}.png`;
+                link.href = renderer.domElement.toDataURL('image/png');
+                link.click();
+            });
+
+            // キーボードショートカット
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') document.body.classList.remove('fullscreen-mode');
+                if (e.key === 'r' || e.key === 'R') document.getElementById('reset').click();
+                if (e.key === 's' || e.key === 'S') document.getElementById('downloadPNG').click();
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

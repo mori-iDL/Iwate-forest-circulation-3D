@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>森の循環3D — Stage 8: 再生 - 大地へ還る（Three.js版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; background: #0e1510; min-height: 100vh; overflow: hidden; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; padding: 20px; z-index: 10; pointer-events: none; text-align: center; }
+        .overlay .main-title { font-size: 1.6rem; font-weight: 400; color: rgba(220, 235, 210, 0.98); letter-spacing: 0.25em; text-shadow: 0 0 25px rgba(100, 140, 80, 0.5); margin-bottom: 15px; }
+        .overlay .main-title .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(150, 180, 130, 0.65); letter-spacing: 0.12em; margin-top: 6px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay h2 { font-size: 1.2rem; font-weight: 300; color: rgba(220, 235, 210, 0.9); letter-spacing: 0.2em; text-shadow: 0 0 20px rgba(100, 140, 80, 0.4); }
+        .overlay h2 .title-en { display: block; font-size: 0.65rem; font-weight: 300; color: rgba(150, 180, 130, 0.7); letter-spacing: 0.15em; margin-top: 5px; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .overlay .subtitle { font-size: 0.8rem; color: rgba(130, 160, 110, 0.8); margin-top: 8px; letter-spacing: 0.15em; }
+        .overlay .story { font-size: 0.85rem; color: rgba(200, 220, 190, 0.75); margin-top: 15px; line-height: 1.8; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .overlay .story .story-en { display: block; font-size: 0.75rem; color: rgba(140, 170, 120, 0.6); margin-top: 8px; font-family: 'Helvetica Neue', Arial, sans-serif; font-style: italic; }
+        .controls { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); background: rgba(14, 21, 16, 0.88); border-radius: 16px; padding: 25px; width: 280px; z-index: 100; border: 1px solid rgba(80, 120, 70, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); transition: transform 0.3s ease, opacity 0.3s ease; }
+        .controls.hidden { transform: translateY(-50%) translateX(120%); opacity: 0; pointer-events: none; }
+        .toggle-btn { position: fixed; right: 20px; bottom: 80px; width: 50px; height: 50px; border-radius: 50%; background: rgba(14, 21, 16, 0.9); border: 1px solid rgba(80, 120, 70, 0.3); color: rgba(200, 220, 185, 0.9); font-size: 1.4rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .toggle-btn:hover { background: rgba(25, 40, 28, 0.95); transform: scale(1.1); }
+        .toggle-btn.active { background: rgba(80, 120, 70, 0.4); }
+        .fullscreen-btn { position: fixed; right: 20px; bottom: 20px; width: 50px; height: 50px; border-radius: 50%; background: rgba(14, 21, 16, 0.9); border: 1px solid rgba(80, 120, 70, 0.3); color: rgba(200, 220, 185, 0.9); font-size: 1.2rem; cursor: pointer; z-index: 101; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+        .fullscreen-btn:hover { background: rgba(25, 40, 28, 0.95); transform: scale(1.1); }
+        body.fullscreen-mode .overlay, body.fullscreen-mode .controls, body.fullscreen-mode .toggle-btn, body.fullscreen-mode .fullscreen-btn, body.fullscreen-mode .hint, body.fullscreen-mode footer { opacity: 0; pointer-events: none; }
+        .fullscreen-hint { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(200, 220, 185, 0.8); font-size: 0.9rem; z-index: 200; opacity: 0; pointer-events: none; text-align: center; }
+        body.fullscreen-mode .fullscreen-hint { animation: fadeInOut 2s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+        .control-group { margin-bottom: 20px; }
+        .control-group h3 { font-size: 0.65rem; font-weight: 400; color: rgba(130, 160, 110, 0.8); text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 12px; }
+        .slider-container { margin-bottom: 14px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .slider-label { font-size: 0.8rem; color: rgba(200, 220, 195, 0.9); }
+        .slider-label-en { font-size: 0.6rem; color: rgba(120, 150, 100, 0.7); display: block; }
+        .slider-value { font-size: 0.75rem; color: rgba(150, 190, 120, 0.9); font-weight: 500; }
+        input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: rgba(60, 90, 50, 0.5); outline: none; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, #7a9f5a, #5a7f4a); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 0 10px rgba(100, 140, 80, 0.5); }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 20px rgba(100, 140, 80, 0.8); }
+        .button-group { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+        .btn { padding: 10px 14px; border: none; border-radius: 8px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+        .btn-secondary { background: rgba(60, 90, 50, 0.6); color: rgba(200, 220, 195, 0.9); border: 1px solid rgba(80, 120, 70, 0.3); }
+        .btn-secondary:hover { background: rgba(80, 115, 65, 0.7); border-color: rgba(100, 150, 90, 0.5); }
+        .checkbox-container { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .checkbox-container input { width: 14px; height: 14px; cursor: pointer; accent-color: #7a9f5a; }
+        .checkbox-container label { font-size: 0.8rem; color: rgba(200, 220, 195, 0.9); cursor: pointer; }
+        .checkbox-label-en { font-size: 0.6rem; color: rgba(120, 150, 100, 0.7); }
+        .info-box { background: rgba(40, 60, 35, 0.4); padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 0.7rem; color: rgba(150, 180, 130, 0.8); line-height: 1.6; }
+        .info-box strong { color: rgba(180, 210, 160, 0.9); }
+        .hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: rgba(120, 150, 100, 0.6); z-index: 10; letter-spacing: 0.1em; }
+        footer { position: fixed; bottom: 20px; right: 20px; color: rgba(90, 120, 80, 0.5); font-size: 0.7rem; z-index: 10; }
+        @media (max-width: 768px) {
+            .controls { right: 10px; top: auto; bottom: 80px; transform: none; width: calc(100% - 20px); max-height: 45vh; overflow-y: auto; padding: 15px; }
+            .controls.hidden { transform: translateY(120%); opacity: 0; }
+            .controls.mobile-default-hidden { transform: translateY(120%); opacity: 0; pointer-events: none; }
+            .overlay { padding: 12px; }
+            .overlay .main-title { font-size: 1.2rem; letter-spacing: 0.15em; }
+            .overlay h2 { font-size: 0.95rem; }
+            .overlay .story { font-size: 0.7rem; margin-top: 10px; }
+            .hint { display: none; }
+            .toggle-btn, .fullscreen-btn { width: 44px; height: 44px; font-size: 1.2rem; }
+            .toggle-btn { bottom: 70px; right: 15px; }
+            .fullscreen-btn { bottom: 15px; right: 15px; }
+            footer { left: 15px; right: auto; font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="overlay">
+        <h1 class="main-title">いわての森が育む、いのちの循環<span class="title-en">The Cycle of Life Nurtured by Iwate's Forests</span></h1>
+        <h2>Stage 8: 再生 — 大地へ還る<span class="title-en">Regeneration — Return to Earth</span></h2>
+        <p class="subtitle">森の循環3D — Forest Circulation 3D</p>
+        <p class="story">
+            朽ちゆく木は大地の糧となり、菌糸が静かに養分を紡ぐ。終わりは始まりへの橋、命は永遠に巡る。<br>
+            <span class="story-en">Decaying wood becomes nourishment for the earth, as mycelium quietly weaves nutrients. Endings bridge to beginnings; life cycles eternally.</span>
+        </p>
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <h3>形状 / Shape</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">朽木の量<span class="slider-label-en">Decaying Wood</span></span><span class="slider-value" id="decayAmountValue">5</span></div>
+                <input type="range" id="decayAmount" min="2" max="10" value="5">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">キノコの数<span class="slider-label-en">Mushroom Count</span></span><span class="slider-value" id="mushroomCountValue">15</span></div>
+                <input type="range" id="mushroomCount" min="5" max="30" value="15">
+            </div>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">菌糸ネットワーク<span class="slider-label-en">Mycelium Network</span></span><span class="slider-value" id="myceliumDensityValue">50</span></div>
+                <input type="range" id="myceliumDensity" min="20" max="100" value="50">
+            </div>
+        </div>
+        <div class="control-group">
+            <h3>アニメーション / Animation</h3>
+            <div class="slider-container">
+                <div class="slider-header"><span class="slider-label">養分の流れ<span class="slider-label-en">Nutrient Flow</span></span><span class="slider-value" id="flowSpeedValue">0.5</span></div>
+                <input type="range" id="flowSpeed" min="0.1" max="1" step="0.05" value="0.5">
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="autoRotate" checked>
+                <label for="autoRotate">自動回転 <span class="checkbox-label-en">Auto Rotate</span></label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showMycelium" checked>
+                <label for="showMycelium">菌糸を表示 <span class="checkbox-label-en">Show Mycelium</span></label>
+            </div>
+        </div>
+        <div class="button-group">
+            <button class="btn btn-secondary" id="reset">リセット / Reset</button>
+            <button class="btn btn-secondary" id="downloadPNG">PNG保存 / Save</button>
+        </div>
+        <div class="info-box">
+            <strong>🍄 Stage 8 の特徴</strong><br>
+            • 朽ちゆく倒木<br>
+            • 生えるキノコたち<br>
+            • 広がる菌糸ネットワーク<br>
+            • 大地への養分の還元
+        </div>
+    </div>
+    <p class="hint">マウスドラッグで視点を変更 / ホイールでズーム</p>
+    <button class="toggle-btn" id="toggleControls" title="設定パネル">⚙️</button>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全画面表示">⛶</button>
+    <div class="fullscreen-hint">タップで戻る / Tap to exit</div>
+    <footer>© ima Design Lab | Matsumori Woodworks — Iwate Forest Circulation Project — Three.js (MIT License)</footer>
+
+    <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let decayingWood = [], mushrooms = [], myceliumNetwork, nutrientParticles, ground;
+        const clock = new THREE.Clock();
+
+        let params = { decayAmount: 5, mushroomCount: 15, myceliumDensity: 50, flowSpeed: 0.5, autoRotate: true, showMycelium: true };
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0e1510);
+            scene.fog = new THREE.FogExp2(0x0e1510, 0.05);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(6, 5, 8);
+            camera.lookAt(0, 0.5, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = params.autoRotate;
+            controls.autoRotateSpeed = 0.3;
+            controls.target.set(0, 0.5, 0);
+
+            createGround();
+            createDecayingWood();
+            createMushrooms();
+            createMyceliumNetwork();
+            createNutrientParticles();
+            setupLighting();
+            setupEventListeners();
+            setupUIControls();
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function setupLighting() {
+            scene.add(new THREE.AmbientLight(0x2a3a25, 0.6));
+
+            // Soft forest light
+            const mainLight = new THREE.DirectionalLight(0xaaccaa, 0.5);
+            mainLight.position.set(5, 10, 5);
+            scene.add(mainLight);
+
+            // Warm decomposition glow
+            const warmLight = new THREE.PointLight(0x88aa66, 0.4, 15);
+            warmLight.position.set(0, 2, 0);
+            scene.add(warmLight);
+
+            // Subtle blue-green ambient
+            const fillLight = new THREE.PointLight(0x446644, 0.3, 20);
+            fillLight.position.set(-5, 3, -5);
+            scene.add(fillLight);
+        }
+
+        function createGround() {
+            if (ground) {
+                scene.remove(ground);
+                ground.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                });
+            }
+
+            ground = new THREE.Group();
+
+            // Forest floor
+            const floorGeo = new THREE.PlaneGeometry(20, 20, 32, 32);
+            // Add subtle height variation
+            const positions = floorGeo.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i + 2] = Math.random() * 0.1;
+            }
+            floorGeo.computeVertexNormals();
+
+            const floorMat = new THREE.MeshStandardMaterial({
+                color: 0x1a2518,
+                roughness: 0.95,
+                metalness: 0
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            ground.add(floor);
+
+            // Moss patches
+            for (let i = 0; i < 20; i++) {
+                const mossGeo = new THREE.SphereGeometry(0.2 + Math.random() * 0.4, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+                const mossMat = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(0.28 + Math.random() * 0.05, 0.5, 0.15 + Math.random() * 0.1),
+                    roughness: 0.9
+                });
+                const moss = new THREE.Mesh(mossGeo, mossMat);
+                moss.position.set(
+                    (Math.random() - 0.5) * 12,
+                    0,
+                    (Math.random() - 0.5) * 12
+                );
+                moss.scale.y = 0.3 + Math.random() * 0.3;
+                ground.add(moss);
+            }
+
+            scene.add(ground);
+        }
+
+        function createDecayingLog(length, radius, decayLevel) {
+            const group = new THREE.Group();
+
+            // Main log body - irregular cylinder
+            const segments = 20;
+            const geo = new THREE.CylinderGeometry(radius, radius * 0.9, length, segments, 8);
+
+            // Deform for decay
+            const positions = geo.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                const noise = (Math.random() - 0.5) * 0.1 * decayLevel;
+                positions[i] += noise;
+                positions[i + 2] += noise;
+            }
+            geo.computeVertexNormals();
+
+            const mat = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(0.08, 0.4 - decayLevel * 0.2, 0.15 + decayLevel * 0.05),
+                roughness: 0.85 + decayLevel * 0.1,
+                metalness: 0
+            });
+
+            const log = new THREE.Mesh(geo, mat);
+            log.rotation.z = Math.PI / 2;
+            group.add(log);
+
+            // Add decay holes
+            const holeCount = Math.floor(decayLevel * 5);
+            for (let i = 0; i < holeCount; i++) {
+                const holeGeo = new THREE.SphereGeometry(0.05 + Math.random() * 0.08, 8, 6);
+                const holeMat = new THREE.MeshStandardMaterial({ color: 0x0a0f0a, roughness: 1 });
+                const hole = new THREE.Mesh(holeGeo, holeMat);
+                const angle = Math.random() * Math.PI * 2;
+                const y = (Math.random() - 0.5) * length * 0.8;
+                hole.position.set(y, Math.sin(angle) * radius * 0.9, Math.cos(angle) * radius * 0.9);
+                group.add(hole);
+            }
+
+            return group;
+        }
+
+        function createDecayingWood() {
+            decayingWood.forEach(w => {
+                scene.remove(w);
+                w.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                });
+            });
+            decayingWood = [];
+
+            const configs = [
+                { pos: [0, 0.25, 0], rot: [0, 0.3, 0.1], len: 3, rad: 0.25, decay: 0.7 },
+                { pos: [-1.5, 0.18, 1.2], rot: [0.1, -0.5, 0], len: 2.2, rad: 0.18, decay: 0.9 },
+                { pos: [1.8, 0.15, -0.8], rot: [0, 0.8, -0.05], len: 1.8, rad: 0.15, decay: 0.5 },
+                { pos: [0.5, 0.12, 2], rot: [0, -0.2, 0.15], len: 1.5, rad: 0.12, decay: 0.8 },
+                { pos: [-2, 0.2, -1.5], rot: [0.05, 1.2, 0], len: 2.5, rad: 0.2, decay: 0.6 },
+                { pos: [2.5, 0.14, 1.5], rot: [0, -0.6, 0.08], len: 1.6, rad: 0.14, decay: 0.85 },
+                { pos: [-0.8, 0.22, -2], rot: [0, 0.1, -0.1], len: 2, rad: 0.22, decay: 0.4 },
+                { pos: [1, 0.16, 0.8], rot: [0.08, 0.5, 0], len: 1.4, rad: 0.13, decay: 0.95 },
+                { pos: [-2.5, 0.18, 0.5], rot: [0, -0.3, 0.05], len: 1.9, rad: 0.16, decay: 0.65 },
+                { pos: [0, 0.2, -1.8], rot: [0.05, 0.9, 0], len: 2.3, rad: 0.19, decay: 0.55 }
+            ];
+
+            for (let i = 0; i < Math.min(params.decayAmount, configs.length); i++) {
+                const c = configs[i];
+                const log = createDecayingLog(c.len, c.rad, c.decay);
+                log.position.set(...c.pos);
+                log.rotation.set(...c.rot);
+                scene.add(log);
+                decayingWood.push(log);
+            }
+        }
+
+        function createMushroom(size, type) {
+            const group = new THREE.Group();
+
+            const colors = {
+                brown: { cap: 0x6b4423, stem: 0xd4c4a8 },
+                white: { cap: 0xe8e0d0, stem: 0xf5f0e8 },
+                red: { cap: 0x8b2020, stem: 0xe8ddd0 },
+                orange: { cap: 0xc06020, stem: 0xd8c8b0 }
+            };
+            const colorSet = colors[type] || colors.brown;
+
+            // Cap
+            const capGeo = new THREE.SphereGeometry(size, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.6);
+            const capMat = new THREE.MeshStandardMaterial({
+                color: colorSet.cap,
+                roughness: 0.6,
+                metalness: 0.05
+            });
+            const cap = new THREE.Mesh(capGeo, capMat);
+            cap.position.y = size * 1.2;
+            group.add(cap);
+
+            // Stem
+            const stemGeo = new THREE.CylinderGeometry(size * 0.15, size * 0.2, size * 1.5, 8);
+            const stemMat = new THREE.MeshStandardMaterial({
+                color: colorSet.stem,
+                roughness: 0.7
+            });
+            const stem = new THREE.Mesh(stemGeo, stemMat);
+            stem.position.y = size * 0.6;
+            group.add(stem);
+
+            // Gills (underside)
+            const gillGeo = new THREE.ConeGeometry(size * 0.9, size * 0.3, 16, 1, true);
+            const gillMat = new THREE.MeshStandardMaterial({
+                color: 0xc8b898,
+                roughness: 0.8,
+                side: THREE.DoubleSide
+            });
+            const gills = new THREE.Mesh(gillGeo, gillMat);
+            gills.position.y = size * 0.95;
+            gills.rotation.x = Math.PI;
+            group.add(gills);
+
+            return group;
+        }
+
+        function createMushrooms() {
+            mushrooms.forEach(m => {
+                scene.remove(m);
+                m.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                });
+            });
+            mushrooms = [];
+
+            const types = ['brown', 'white', 'red', 'orange'];
+
+            for (let i = 0; i < params.mushroomCount; i++) {
+                const type = types[Math.floor(Math.random() * types.length)];
+                const size = 0.05 + Math.random() * 0.12;
+                const mushroom = createMushroom(size, type);
+
+                // Position near decaying wood
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 0.3 + Math.random() * 3.5;
+                mushroom.position.set(
+                    Math.cos(angle) * radius,
+                    0,
+                    Math.sin(angle) * radius
+                );
+                mushroom.rotation.y = Math.random() * Math.PI * 2;
+
+                scene.add(mushroom);
+                mushrooms.push(mushroom);
+            }
+        }
+
+        function createMyceliumNetwork() {
+            if (myceliumNetwork) {
+                scene.remove(myceliumNetwork);
+                myceliumNetwork.geometry.dispose();
+                myceliumNetwork.material.dispose();
+            }
+
+            const lineCount = params.myceliumDensity;
+            const positions = [];
+            const colors = [];
+
+            for (let i = 0; i < lineCount; i++) {
+                // Create branching lines
+                const startAngle = Math.random() * Math.PI * 2;
+                const startRadius = Math.random() * 0.5;
+                const startX = Math.cos(startAngle) * startRadius;
+                const startZ = Math.sin(startAngle) * startRadius;
+
+                const endAngle = startAngle + (Math.random() - 0.5) * 1.5;
+                const endRadius = startRadius + 0.5 + Math.random() * 2.5;
+                const endX = Math.cos(endAngle) * endRadius;
+                const endZ = Math.sin(endAngle) * endRadius;
+
+                // Start point
+                positions.push(startX, 0.02, startZ);
+                // Mid point with slight curve
+                const midX = (startX + endX) / 2 + (Math.random() - 0.5) * 0.5;
+                const midZ = (startZ + endZ) / 2 + (Math.random() - 0.5) * 0.5;
+                positions.push(midX, 0.015, midZ);
+                positions.push(midX, 0.015, midZ);
+                // End point
+                positions.push(endX, 0.01, endZ);
+
+                // Pale mycelium colors
+                const brightness = 0.6 + Math.random() * 0.4;
+                for (let j = 0; j < 4; j++) {
+                    colors.push(0.9 * brightness, 0.85 * brightness, 0.7 * brightness);
+                }
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const mat = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.4,
+                linewidth: 1
+            });
+
+            myceliumNetwork = new THREE.LineSegments(geo, mat);
+            myceliumNetwork.visible = params.showMycelium;
+            scene.add(myceliumNetwork);
+        }
+
+        function createNutrientParticles() {
+            if (nutrientParticles) {
+                scene.remove(nutrientParticles);
+                nutrientParticles.geometry.dispose();
+                nutrientParticles.material.dispose();
+            }
+
+            const count = 200;
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+            const sizes = new Float32Array(count);
+
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 4;
+                positions[i * 3] = Math.cos(angle) * radius;
+                positions[i * 3 + 1] = Math.random() * 0.5;
+                positions[i * 3 + 2] = Math.sin(angle) * radius;
+
+                sizes[i] = 0.02 + Math.random() * 0.03;
+
+                // Organic nutrient colors - greens and browns
+                const type = Math.random();
+                if (type < 0.5) {
+                    // Green
+                    colors[i * 3] = 0.3 + Math.random() * 0.2;
+                    colors[i * 3 + 1] = 0.5 + Math.random() * 0.3;
+                    colors[i * 3 + 2] = 0.2 + Math.random() * 0.2;
+                } else {
+                    // Brown/amber
+                    colors[i * 3] = 0.6 + Math.random() * 0.2;
+                    colors[i * 3 + 1] = 0.4 + Math.random() * 0.2;
+                    colors[i * 3 + 2] = 0.2 + Math.random() * 0.1;
+                }
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const mat = new THREE.PointsMaterial({
+                size: 0.04,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
+            });
+
+            nutrientParticles = new THREE.Points(geo, mat);
+            scene.add(nutrientParticles);
+        }
+
+        function setupUIControls() {
+            const controlsPanel = document.querySelector('.controls');
+            const toggleBtn = document.getElementById('toggleControls');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                controlsPanel.classList.add('mobile-default-hidden');
+            }
+
+            toggleBtn.addEventListener('click', () => {
+                controlsPanel.classList.remove('mobile-default-hidden');
+                controlsPanel.classList.toggle('hidden');
+                toggleBtn.classList.toggle('active');
+            });
+
+            fullscreenBtn.addEventListener('click', () => {
+                document.body.classList.add('fullscreen-mode');
+            });
+
+            document.getElementById('canvas-container').addEventListener('click', () => {
+                if (document.body.classList.contains('fullscreen-mode')) {
+                    document.body.classList.remove('fullscreen-mode');
+                }
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('decayAmount').addEventListener('input', e => {
+                params.decayAmount = parseInt(e.target.value);
+                document.getElementById('decayAmountValue').textContent = params.decayAmount;
+                createDecayingWood();
+            });
+
+            document.getElementById('mushroomCount').addEventListener('input', e => {
+                params.mushroomCount = parseInt(e.target.value);
+                document.getElementById('mushroomCountValue').textContent = params.mushroomCount;
+                createMushrooms();
+            });
+
+            document.getElementById('myceliumDensity').addEventListener('input', e => {
+                params.myceliumDensity = parseInt(e.target.value);
+                document.getElementById('myceliumDensityValue').textContent = params.myceliumDensity;
+                createMyceliumNetwork();
+            });
+
+            document.getElementById('flowSpeed').addEventListener('input', e => {
+                params.flowSpeed = parseFloat(e.target.value);
+                document.getElementById('flowSpeedValue').textContent = params.flowSpeed.toFixed(2);
+            });
+
+            document.getElementById('autoRotate').addEventListener('change', e => {
+                params.autoRotate = e.target.checked;
+                controls.autoRotate = params.autoRotate;
+            });
+
+            document.getElementById('showMycelium').addEventListener('change', e => {
+                params.showMycelium = e.target.checked;
+                if (myceliumNetwork) myceliumNetwork.visible = params.showMycelium;
+            });
+
+            document.getElementById('reset').addEventListener('click', () => {
+                params = { decayAmount: 5, mushroomCount: 15, myceliumDensity: 50, flowSpeed: 0.5, autoRotate: true, showMycelium: true };
+                document.getElementById('decayAmount').value = params.decayAmount;
+                document.getElementById('decayAmountValue').textContent = params.decayAmount;
+                document.getElementById('mushroomCount').value = params.mushroomCount;
+                document.getElementById('mushroomCountValue').textContent = params.mushroomCount;
+                document.getElementById('myceliumDensity').value = params.myceliumDensity;
+                document.getElementById('myceliumDensityValue').textContent = params.myceliumDensity;
+                document.getElementById('flowSpeed').value = params.flowSpeed;
+                document.getElementById('flowSpeedValue').textContent = params.flowSpeed.toFixed(2);
+                document.getElementById('autoRotate').checked = params.autoRotate;
+                document.getElementById('showMycelium').checked = params.showMycelium;
+                controls.autoRotate = params.autoRotate;
+                createDecayingWood();
+                createMushrooms();
+                createMyceliumNetwork();
+            });
+
+            document.getElementById('downloadPNG').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const link = document.createElement('a');
+                link.download = 'iwate_forest_stage8_regeneration.png';
+                link.href = renderer.domElement.toDataURL('image/png');
+                link.click();
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') document.body.classList.remove('fullscreen-mode');
+                if (e.key === 'r' || e.key === 'R') document.getElementById('reset').click();
+                if (e.key === 's' || e.key === 'S') document.getElementById('downloadPNG').click();
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            const speed = params.flowSpeed;
+
+            // Animate nutrient particles - flowing into the earth
+            if (nutrientParticles) {
+                const positions = nutrientParticles.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length / 3; i++) {
+                    // Gentle descent and swirl
+                    positions[i * 3 + 1] -= 0.001 * speed;
+                    positions[i * 3] += Math.sin(time * speed + i) * 0.001;
+                    positions[i * 3 + 2] += Math.cos(time * speed * 0.8 + i * 0.5) * 0.001;
+
+                    // Reset particles that sink into ground
+                    if (positions[i * 3 + 1] < 0) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const radius = Math.random() * 3;
+                        positions[i * 3] = Math.cos(angle) * radius;
+                        positions[i * 3 + 1] = 0.5 + Math.random() * 0.3;
+                        positions[i * 3 + 2] = Math.sin(angle) * radius;
+                    }
+                }
+                nutrientParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Subtle mushroom pulse
+            mushrooms.forEach((m, i) => {
+                const scale = 1 + Math.sin(time * speed * 0.5 + i) * 0.02;
+                m.scale.setScalar(scale);
+            });
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
