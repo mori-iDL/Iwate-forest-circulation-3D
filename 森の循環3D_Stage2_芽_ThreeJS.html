@@ -115,6 +115,105 @@
             border: 1px solid rgba(80, 140, 80, 0.2);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .controls.hidden {
+            transform: translateY(-50%) translateX(120%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* トグルボタン */
+        .toggle-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 80px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(10, 26, 18, 0.9);
+            border: 1px solid rgba(80, 140, 80, 0.3);
+            color: rgba(200, 220, 200, 0.9);
+            font-size: 1.4rem;
+            cursor: pointer;
+            z-index: 101;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .toggle-btn:hover {
+            background: rgba(30, 50, 35, 0.95);
+            transform: scale(1.1);
+        }
+
+        .toggle-btn.active {
+            background: rgba(80, 140, 80, 0.4);
+        }
+
+        /* フルスクリーンボタン */
+        .fullscreen-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(10, 26, 18, 0.9);
+            border: 1px solid rgba(80, 140, 80, 0.3);
+            color: rgba(200, 220, 200, 0.9);
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 101;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .fullscreen-btn:hover {
+            background: rgba(30, 50, 35, 0.95);
+            transform: scale(1.1);
+        }
+
+        /* フルスクリーンモード */
+        body.fullscreen-mode .overlay,
+        body.fullscreen-mode .controls,
+        body.fullscreen-mode .toggle-btn,
+        body.fullscreen-mode .fullscreen-btn,
+        body.fullscreen-mode .hint,
+        body.fullscreen-mode footer {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .fullscreen-hint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(200, 220, 200, 0.8);
+            font-size: 0.9rem;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        body.fullscreen-mode .fullscreen-hint {
+            animation: fadeInOut 2s ease;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
         }
 
         .control-group {
@@ -274,33 +373,68 @@
             .controls {
                 right: 10px;
                 top: auto;
-                bottom: 10px;
+                bottom: 80px;
                 transform: none;
                 width: calc(100% - 20px);
-                max-height: 40vh;
+                max-height: 45vh;
                 overflow-y: auto;
                 padding: 15px;
             }
 
+            .controls.hidden {
+                transform: translateY(120%);
+                opacity: 0;
+            }
+
+            /* モバイルではデフォルトで非表示 */
+            .controls.mobile-default-hidden {
+                transform: translateY(120%);
+                opacity: 0;
+                pointer-events: none;
+            }
+
             .overlay {
-                padding: 15px;
+                padding: 12px;
             }
 
             .overlay .main-title {
-                font-size: 1.3rem;
+                font-size: 1.2rem;
+                letter-spacing: 0.15em;
             }
 
             .overlay h2 {
-                font-size: 1rem;
+                font-size: 0.95rem;
             }
 
             .overlay .story {
-                font-size: 0.75rem;
+                font-size: 0.7rem;
+                margin-top: 10px;
             }
 
             .hint {
-                bottom: auto;
-                top: 140px;
+                display: none;
+            }
+
+            .toggle-btn, .fullscreen-btn {
+                width: 44px;
+                height: 44px;
+                font-size: 1.2rem;
+            }
+
+            .toggle-btn {
+                bottom: 70px;
+                right: 15px;
+            }
+
+            .fullscreen-btn {
+                bottom: 15px;
+                right: 15px;
+            }
+
+            footer {
+                left: 15px;
+                right: auto;
+                font-size: 0.6rem;
             }
         }
     </style>
@@ -404,6 +538,11 @@
     </div>
 
     <p class="hint">マウスドラッグで視点を変更 / ホイールでズーム</p>
+
+    <!-- UIコントロールボタン -->
+    <button class="toggle-btn" id="toggleControls" title="設定パネル">⚙️</button>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全画面表示">⛶</button>
+    <div class="fullscreen-hint">タップで戻る / Tap to exit</div>
 
     <footer>
         © ima Design Lab｜松森木工所 — Iwate Forest Circulation Project — Three.js (MIT License)
@@ -741,9 +880,59 @@
         }
 
         // ========================================
+        // UI表示制御
+        // ========================================
+        function setupUIControls() {
+            const controlsPanel = document.querySelector('.controls');
+            const toggleBtn = document.getElementById('toggleControls');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const body = document.body;
+
+            // モバイル判定
+            const isMobile = window.innerWidth <= 768;
+
+            // モバイルではデフォルトで非表示
+            if (isMobile) {
+                controlsPanel.classList.add('mobile-default-hidden');
+            }
+
+            // トグルボタン
+            toggleBtn.addEventListener('click', () => {
+                controlsPanel.classList.remove('mobile-default-hidden');
+                controlsPanel.classList.toggle('hidden');
+                toggleBtn.classList.toggle('active');
+            });
+
+            // フルスクリーンボタン
+            fullscreenBtn.addEventListener('click', () => {
+                body.classList.add('fullscreen-mode');
+            });
+
+            // フルスクリーン解除（画面タップ）
+            document.getElementById('canvas-container').addEventListener('click', (e) => {
+                if (body.classList.contains('fullscreen-mode')) {
+                    body.classList.remove('fullscreen-mode');
+                }
+            });
+
+            // リサイズ時のモバイル判定更新
+            window.addEventListener('resize', () => {
+                const nowMobile = window.innerWidth <= 768;
+                if (nowMobile && !controlsPanel.classList.contains('hidden')) {
+                    // モバイルになったらパネルを閉じる
+                    controlsPanel.classList.add('hidden');
+                    toggleBtn.classList.remove('active');
+                }
+            });
+        }
+
+        // ========================================
         // イベントリスナー
         // ========================================
         function setupEventListeners() {
+            // UI制御の初期化
+            setupUIControls();
+
             const sliders = [
                 { id: 'sproutCount', recreate: ['sprouts'] },
                 { id: 'particleCount', recreate: ['particles'] },
