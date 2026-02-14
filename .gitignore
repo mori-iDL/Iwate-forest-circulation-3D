@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+._*
+
+# Environment
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets
+*.pem
+*.key
