@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>いわての森が育む、いのちの循環</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      background: #0f1a1a;
+      color: #e8e4dc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      text-align: center;
+      padding: 4rem 2rem 2rem;
+      max-width: 640px;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      line-height: 1.8;
+      color: #c8c0b0;
+    }
+
+    header p {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: #88aa55;
+      letter-spacing: 0.1em;
+    }
+
+    .stages {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      max-width: 720px;
+      width: 90%;
+      margin: 2rem auto;
+      background: #1a2a2a;
+      border: 1px solid #1a2a2a;
+    }
+
+    .stage a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      background: #0f1a1a;
+      text-decoration: none;
+      color: #e8e4dc;
+      transition: background 0.4s ease, color 0.4s ease;
+      text-align: center;
+      min-height: 140px;
+    }
+
+    .stage a:hover {
+      background: #1a2e2a;
+    }
+
+    .stage-number {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      color: #88aa55;
+      margin-bottom: 0.6rem;
+    }
+
+    .stage-title-jp {
+      font-size: 1.1rem;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.3rem;
+    }
+
+    .stage-subtitle {
+      font-size: 0.7rem;
+      color: #8a8474;
+      letter-spacing: 0.05em;
+    }
+
+    footer {
+      text-align: center;
+      padding: 3rem 2rem 4rem;
+      font-size: 0.75rem;
+      color: #5a5a4a;
+      letter-spacing: 0.08em;
+    }
+
+    footer a {
+      color: #88aa55;
+      text-decoration: none;
+    }
+
+    @media (max-width: 520px) {
+      .stages {
+        grid-template-columns: 1fr;
+        width: 92%;
+      }
+
+      .stage a {
+        min-height: 100px;
+        padding: 1.5rem 1rem;
+      }
+
+      header h1 {
+        font-size: 1.3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>いわての森が育む、<br>いのちの循環</h1>
+    <p>The Cycle of Life Nurtured by Iwate's Forests</p>
+  </header>
+
+  <div class="stages">
+    <div class="stage">
+      <a href="森の循環3D_Stage1_種_ThreeJS.html">
+        <span class="stage-number">STAGE 1</span>
+        <span class="stage-title-jp">種 — 雪に眠る</span>
+        <span class="stage-subtitle">Seed — Sleeping in Snow</span>
+      </a>
+    </div>
+    <div class="stage">
+      <a href="森の循環3D_Stage2_芽_ThreeJS.html">
+        <span class="stage-number">STAGE 2</span>
+        <span class="stage-title-jp">芽 — 春の目覚め</span>
+        <span class="stage-subtitle">Sprout — Spring Awakening</span>
+      </a>
+    </div>
+    <div class="stage">
+      <a href="森の循環3D_Stage3_若木_ThreeJS.html">
+        <span class="stage-number">STAGE 3</span>
+        <span class="stage-title-jp">若木 — 風に揺れる</span>
+        <span class="stage-subtitle">Sapling — Swaying in the Wind</span>
+      </a>
+    </div>
+    <div class="stage">
+      <a href="森の循環3D_Stage4_成長_ThreeJS.html">
+        <span class="stage-number">STAGE 4</span>
+        <span class="stage-title-jp">成長 — 森を編む</span>
+        <span class="stage-subtitle">Growth — Weaving the Forest</span>
+      </a>
+    </div>
+    <div class="stage">
+      <a href="森の循環3D_Stage5_木材_ThreeJS.html">
+        <span class="stage-number">STAGE 5</span>
+        <span class="stage-title-jp">木材 — 刻まれる記憶</span>
+        <span class="stage-subtitle">Timber — Carved Memories</span>
+      </a>
+    </div>
+    <div class="stage">
+      <a href="森の循環3D_Stage6_加工_ThreeJS.html">
+        <span class="stage-number">STAGE 6</span>
+        <span class="stage-title-jp">加工 — 手仕事の温もり</span>
+        <span class="stage-subtitle">Crafting — Warmth of Handwork</span>
+      </a>
+    </div>
+    <div class="stage">
+      <a href="森の循環3D_Stage7_端材_ThreeJS.html">
+        <span class="stage-number">STAGE 7</span>
+        <span class="stage-title-jp">端材 — 新たな命</span>
+        <span class="stage-subtitle">Offcuts — New Life</span>
+      </a>
+    </div>
+    <div class="stage">
+      <a href="森の循環3D_Stage8_再生_ThreeJS.html">
+        <span class="stage-number">STAGE 8</span>
+        <span class="stage-title-jp">再生 — 大地へ還る</span>
+        <span class="stage-subtitle">Regeneration — Return to Earth</span>
+      </a>
+    </div>
+    <div class="stage">
+      <a href="森の循環3D_Stage9_未来_ThreeJS.html">
+        <span class="stage-number">STAGE 9</span>
+        <span class="stage-title-jp">未来 — 次の種へ</span>
+        <span class="stage-subtitle">Future — To the Next Seed</span>
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    <p>© ima Design Lab｜松森木工所</p>
+    <p style="margin-top: 0.5rem;">
+      <a href="https://github.com/mori-iDL/Iwate-forest-circulation-3D">GitHub</a>
+    </p>
+  </footer>
+
+</body>
+</html>
